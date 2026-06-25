@@ -236,6 +236,30 @@
     padding: 9px 12px; border-radius: 7px; font-size: 14px; cursor: pointer;
   }
   .select-camion:focus { outline: none; border-color: var(--accent); }
+
+  /* Lignes de produits structurées (nombre + menus déroulants) */
+  .lignes { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+  .ligne-produit { display: flex; gap: 6px; align-items: center; }
+  .ligne-produit input.qte {
+    width: 70px; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    padding: 8px 10px; border-radius: 7px; font-size: 14px; text-align: center;
+  }
+  .ligne-produit .mult { color: var(--text-dim); font-size: 13px; }
+  .ligne-produit select {
+    flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    padding: 8px 10px; border-radius: 7px; font-size: 14px; cursor: pointer;
+  }
+  .ligne-produit input:focus, .ligne-produit select:focus { outline: none; border-color: var(--accent); }
+  .ligne-produit .btn-del {
+    background: transparent; border: none; color: var(--text-dim); cursor: pointer;
+    font-size: 16px; padding: 4px 8px; border-radius: 5px; flex-shrink: 0;
+  }
+  .ligne-produit .btn-del:hover { background: var(--surface-2); color: var(--danger); }
+  .btn-add {
+    background: transparent; border: 1px dashed var(--border); color: var(--accent);
+    padding: 6px 12px; border-radius: 7px; font-size: 12px; font-weight: 600; cursor: pointer;
+  }
+  .btn-add:hover { background: var(--surface-2); border-color: var(--accent); }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .cat-label { display: flex; align-items: center; gap: 6px; }
   .cat-chip { width: 10px; height: 10px; border-radius: 3px; }
@@ -349,19 +373,31 @@
       </div>
       <div class="field"><label>Client</label><input id="f_client" placeholder="A L'Eau Poisson"></div>
     </div>
-    <div class="field"><label class="cat-label"><span class="cat-chip" style="background:var(--c-etoiles)"></span> Étoiles</label><input id="f_etoiles" placeholder="4x48 En3 2x12 En2"></div>
-    <div class="grid2">
-      <div class="field"><label class="cat-label"><span class="cat-chip" style="background:var(--c-baby)"></span> Baby</label><input id="f_baby" placeholder="2x96 bbk"></div>
-      <div class="field"><label class="cat-label"><span class="cat-chip" style="background:var(--c-kys)"></span> Kys</label><input id="f_kys" placeholder="59x9 K2"></div>
+    <div class="field">
+      <label class="cat-label"><span class="cat-chip" style="background:var(--c-etoiles)"></span> Étoiles</label>
+      <div class="lignes" id="lignes_etoiles"></div>
+      <button type="button" class="btn-add" onclick="ajouterLigne('etoiles')">+ Ajouter une ligne</button>
+    </div>
+    <div class="field">
+      <label class="cat-label"><span class="cat-chip" style="background:var(--c-baby)"></span> Baby</label>
+      <div class="lignes" id="lignes_baby"></div>
+      <button type="button" class="btn-add" onclick="ajouterLigne('baby')">+ Ajouter une ligne</button>
+    </div>
+    <div class="field">
+      <label class="cat-label"><span class="cat-chip" style="background:var(--c-kys)"></span> Kys</label>
+      <div class="lignes" id="lignes_kys"></div>
+      <button type="button" class="btn-add" onclick="ajouterLigne('kys')">+ Ajouter une ligne</button>
+    </div>
+    <div class="field">
+      <label class="cat-label"><span class="cat-chip" style="background:var(--c-fines)"></span> Fines</label>
+      <div class="lignes" id="lignes_fines"></div>
+      <button type="button" class="btn-add" onclick="ajouterLigne('fines')">+ Ajouter une ligne</button>
     </div>
     <div class="grid2">
-      <div class="field"><label class="cat-label"><span class="cat-chip" style="background:var(--c-fines)"></span> Fines</label><input id="f_fines" placeholder="5x200 F3"></div>
       <div class="field"><label class="cat-label"><span class="cat-chip" style="background:var(--c-easy)"></span> Easy</label><input id="f_easy"></div>
-    </div>
-    <div class="grid2">
       <div class="field"><label class="cat-label"><span class="cat-chip" style="background:var(--c-coffrets)"></span> Coffrets</label><input id="f_coffrets"></div>
-      <div class="field"><label class="cat-label"><span class="cat-chip" style="background:var(--c-cadeaux)"></span> Cadeaux</label><input id="f_cadeaux"></div>
     </div>
+    <div class="field"><label class="cat-label"><span class="cat-chip" style="background:var(--c-cadeaux)"></span> Cadeaux</label><input id="f_cadeaux"></div>
     <div class="modal-actions">
       <button class="btn ghost" onclick="fermerModale('overlayCommande')">Annuler</button>
       <button class="btn" onclick="enregistrerCommande()">Enregistrer</button>
@@ -611,12 +647,94 @@
     if (confirm(`Supprimer la commande de "${nom}" ?`)) db.ref(`commandes/${id}`).remove();
   }
 
+  // ======================================================
+  //  CONFIG des catégories structurées (calibres + codes)
+  // ======================================================
+  const CONFIG_PRODUITS = {
+    etoiles: {
+      calibres: ["12","24","48","96"],
+      codes: ["En1","En2","En3","En4"],
+      codeAuto: null
+    },
+    baby: {
+      calibres: ["6","12","24","48","96"],
+      codes: null,                // pas de menu code
+      codeAuto: "bbk"             // toujours bbk
+    },
+    kys: {
+      calibres: ["1kg","3kg","12","24","48","96"],
+      codes: ["K1","K2","K3","K4"],
+      codeAuto: null
+    },
+    fines: {
+      calibres: ["9","12","24","48","96","150","200"],
+      codes: ["F1","F2","F3","F4"],
+      codeAuto: null
+    }
+  };
+
+  // Crée une ligne de saisie (nombre + calibre + code) pour une catégorie
+  function ajouterLigne(cat, valeurs) {
+    const conf = CONFIG_PRODUITS[cat];
+    const conteneur = document.getElementById("lignes_" + cat);
+    const ligne = document.createElement("div");
+    ligne.className = "ligne-produit";
+
+    const optsCalibre = conf.calibres.map(c =>
+      `<option value="${c}">${c}</option>`).join("");
+    const selCode = conf.codes
+      ? `<select class="code">${conf.codes.map(c => `<option value="${c}">${c}</option>`).join("")}</select>`
+      : "";
+
+    ligne.innerHTML = `
+      <input class="qte" type="number" inputmode="numeric" placeholder="0">
+      <span class="mult">×</span>
+      <select class="calibre">${optsCalibre}</select>
+      ${selCode}
+      <button type="button" class="btn-del" title="Retirer" onclick="this.parentElement.remove()">✕</button>
+    `;
+    conteneur.appendChild(ligne);
+
+    // Pré-remplissage éventuel
+    if (valeurs) {
+      if (valeurs.qte != null) ligne.querySelector(".qte").value = valeurs.qte;
+      if (valeurs.calibre) ligne.querySelector(".calibre").value = valeurs.calibre;
+      if (valeurs.code && ligne.querySelector(".code")) ligne.querySelector(".code").value = valeurs.code;
+    }
+  }
+
+  // Lit toutes les lignes d'une catégorie et construit la chaîne (ex: "4x48 En3 2x12 En2")
+  function lireLignes(cat) {
+    const conf = CONFIG_PRODUITS[cat];
+    const lignes = document.querySelectorAll("#lignes_" + cat + " .ligne-produit");
+    const morceaux = [];
+    lignes.forEach(l => {
+      const qte = l.querySelector(".qte").value.trim();
+      const calibre = l.querySelector(".calibre").value;
+      if (!qte) return; // ligne vide ignorée
+      let code = "";
+      if (conf.codes) {
+        code = l.querySelector(".code").value;
+      } else if (conf.codeAuto) {
+        code = conf.codeAuto;
+      }
+      morceaux.push(`${qte}x${calibre}${code ? " " + code : ""}`);
+    });
+    return morceaux.join(" ");
+  }
+
   function ouvrirModaleCommande() {
     if (!db) { alert("Firebase n'est pas connecté."); return; }
     document.getElementById("overlayCommande").classList.add("open");
-    ["camion","client","etoiles","baby","kys","fines","easy","coffrets","cadeaux"]
-      .forEach(f => document.getElementById("f_"+f).value = "");
-    document.getElementById("f_camion").focus();
+    // Réinitialise les champs simples
+    ["client","easy","coffrets","cadeaux"].forEach(f => document.getElementById("f_"+f).value = "");
+    document.getElementById("f_camion").value = "";
+    // Vide et réinitialise les zones structurées avec une ligne vierge chacune
+    ["etoiles","baby","kys","fines"].forEach(cat => {
+      document.getElementById("lignes_" + cat).innerHTML = "";
+      ajouterLigne(cat);
+    });
+    document.getElementById("f_client").focus();
   }
 
   function enregistrerCommande() {
@@ -626,7 +744,10 @@
       camion: document.getElementById("f_camion").value.trim(),
       client: client, source: "manuel", dateCreation: Date.now()
     };
-    CATEGORIES.forEach(cat => cmd[cat] = document.getElementById("f_"+cat).value.trim());
+    // Catégories structurées
+    ["etoiles","baby","kys","fines"].forEach(cat => cmd[cat] = lireLignes(cat));
+    // Catégories texte libre
+    ["easy","coffrets","cadeaux"].forEach(cat => cmd[cat] = document.getElementById("f_"+cat).value.trim());
     db.ref("commandes").push(cmd);
     fermerModale("overlayCommande");
   }
