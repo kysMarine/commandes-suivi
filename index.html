@@ -264,6 +264,18 @@
   .cat-label { display: flex; align-items: center; gap: 6px; }
   .cat-chip { width: 10px; height: 10px; border-radius: 3px; }
   .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+  /* Bouton Rajout (aligné à gauche du groupe) */
+  .modal-actions .btn-rajout { margin-right: auto; background: var(--danger); }
+  .modal-actions .btn-rajout:hover { background: #d4665f; }
+  /* Ligne de tableau marquée comme rajout */
+  tbody tr.rajout td { border-top: 1px solid var(--danger); border-bottom: 1px solid var(--danger); }
+  tbody tr.rajout td:first-child { border-left: 1px solid var(--danger); }
+  tbody tr.rajout td:last-child { border-right: 1px solid var(--danger); }
+  .rajout-tag {
+    display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 4px;
+    margin-left: 6px; vertical-align: middle; background: #3a1d1a; color: var(--danger);
+    text-transform: uppercase; letter-spacing: 0.3px; font-weight: 700;
+  }
   .hint {
     background: var(--surface-2); border-left: 3px solid var(--accent);
     padding: 10px 14px; border-radius: 6px; font-size: 12px; color: var(--text-dim); margin-bottom: 18px;
@@ -399,8 +411,9 @@
     </div>
     <div class="field"><label class="cat-label"><span class="cat-chip" style="background:var(--c-cadeaux)"></span> Cadeaux</label><input id="f_cadeaux"></div>
     <div class="modal-actions">
+      <button class="btn btn-rajout" onclick="enregistrerCommande(true)">Rajout</button>
       <button class="btn ghost" onclick="fermerModale('overlayCommande')">Annuler</button>
-      <button class="btn" onclick="enregistrerCommande()">Enregistrer</button>
+      <button class="btn" onclick="enregistrerCommande(false)">Enregistrer</button>
     </div>
   </div>
 </div>
@@ -605,9 +618,11 @@
 
     for (const c of liste) {
       const tr = document.createElement("tr");
+      if (c.rajout) tr.className = "rajout";
+      const tagRajout = c.rajout ? '<span class="rajout-tag">rajout</span>' : '';
       tr.innerHTML = `
         <td class="camion" contenteditable data-id="${c.id}" data-champ="camion">${esc(c.camion)}</td>
-        <td class="client" contenteditable data-id="${c.id}" data-champ="client">${esc(c.client)}${tagSource(c.source)}</td>
+        <td class="client" contenteditable data-id="${c.id}" data-champ="client">${esc(c.client)}${tagSource(c.source)}${tagRajout}</td>
         ${CATEGORIES.map(cat => `<td contenteditable data-id="${c.id}" data-champ="${cat}">${esc(c[cat])}</td>`).join("")}
         <td class="actions"><button class="icon-btn" title="Supprimer" onclick="supprimerCommande('${c.id}')">✕</button></td>`;
       tbody.appendChild(tr);
@@ -634,7 +649,7 @@
     const td = e.target;
     const id = td.dataset.id, champ = td.dataset.champ;
     let val = td.textContent;
-    if (champ === "client") val = val.replace(/\s*(TG|manuel)\s*$/,"").trim();
+    if (champ === "client") val = val.replace(/\s*(TG|manuel|rajout)\s*$/gi,"").trim();
     val = val.trim();
     if (!db) return;
     const ancienne = commandes[id] ? (commandes[id][champ] || "") : "";
@@ -737,17 +752,37 @@
     document.getElementById("f_client").focus();
   }
 
-  function enregistrerCommande() {
+  function enregistrerCommande(estRajout) {
     const client = document.getElementById("f_client").value.trim();
     if (!client) { alert("Le nom du client est obligatoire."); return; }
+
+    // Mode RAJOUT : le client doit exister exactement dans le tableau
+    let dateCreation = Date.now();
+    if (estRajout) {
+      // Cherche le client existant (correspondance exacte, insensible aux espaces en trop)
+      const cible = Object.values(commandes).find(
+        c => (c.client || "").trim() === client
+      );
+      if (!cible) {
+        alert(`Aucune commande au nom de "${client}" dans le tableau.\nLe rajout n'est possible que pour un client déjà présent.`);
+        return;
+      }
+      // Positionne le rajout juste APRÈS le client : date du client + 1 ms
+      // (suffit pour le tri par dateCreation, sans bousculer les autres)
+      dateCreation = (Number(cible.dateCreation) || Date.now()) + 1;
+    }
+
     const cmd = {
       camion: document.getElementById("f_camion").value.trim(),
-      client: client, source: "manuel", dateCreation: Date.now()
+      client: client,
+      source: "manuel",
+      dateCreation: dateCreation
     };
-    // Catégories structurées
+    if (estRajout) cmd.rajout = true;
+
     ["etoiles","baby","kys","fines"].forEach(cat => cmd[cat] = lireLignes(cat));
-    // Catégories texte libre
     ["easy","coffrets","cadeaux"].forEach(cat => cmd[cat] = document.getElementById("f_"+cat).value.trim());
+
     db.ref("commandes").push(cmd);
     fermerModale("overlayCommande");
   }
