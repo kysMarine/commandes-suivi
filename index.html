@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KYS Marine — Commandes</title>
+<style>
+  :root {
+    /* Palette inspirée des huîtres : nacre, ardoise, et accents par catégorie */
+    --bg: #0f1419;
+    --surface: #161d26;
+    --surface-2: #1d2630;
+    --border: #2a3540;
+    --text: #e8edf2;
+    --text-dim: #8a98a8;
+    --accent: #4a9d9c;        /* bleu-vert lagune */
+    --accent-soft: #2d5f5e;
+    --danger: #c4564f;
+    --ok: #5a9d6b;
+
+    /* Couleurs par catégorie (rappel de la Sheet) */
+    --c-etoiles: #e0a93b;
+    --c-baby: #d98aab;
+    --c-kys: #4a8fd4;
+    --c-fines: #6fae6f;
+    --c-easy: #9a9a9a;
+    --c-coffrets: #d4a574;
+    --c-cadeaux: #b08fd4;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.4;
+  }
+
+  /* ---- En-tête ---- */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  .brand h1 {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .brand .sub {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--text-dim);
+    transition: background 0.3s;
+  }
+  .dot.live { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  .dot.off { background: var(--danger); }
+
+  /* ---- Barre d'actions ---- */
+  .toolbar {
+    padding: 14px 20px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 9px 16px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+  }
+  .btn:hover { background: #5ab0af; }
+  .btn:active { transform: translateY(1px); }
+  .btn.ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+  .btn.ghost:hover { background: var(--surface-2); color: var(--text); }
+
+  .search {
+    flex: 1;
+    min-width: 180px;
+    max-width: 320px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 9px 14px;
+    border-radius: 7px;
+    font-size: 13px;
+  }
+  .search::placeholder { color: var(--text-dim); }
+  .count {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-left: auto;
+  }
+
+  /* ---- Tableau ---- */
+  .table-wrap {
+    margin: 0 20px 40px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: auto;
+    max-height: calc(100vh - 160px);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 900px;
+  }
+  thead th {
+    position: sticky;
+    top: 0;
+    background: var(--surface-2);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 11px 12px;
+    text-align: left;
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+    z-index: 10;
+  }
+  /* Liseré coloré sous chaque en-tête catégorie */
+  th[data-cat]::after {
+    content: '';
+    display: block;
+    height: 3px;
+    margin-top: 7px;
+    margin-bottom: -11px;
+    border-radius: 2px;
+  }
+  th[data-cat="etoiles"]::after { background: var(--c-etoiles); }
+  th[data-cat="baby"]::after { background: var(--c-baby); }
+  th[data-cat="kys"]::after { background: var(--c-kys); }
+  th[data-cat="fines"]::after { background: var(--c-fines); }
+  th[data-cat="easy"]::after { background: var(--c-easy); }
+  th[data-cat="coffrets"]::after { background: var(--c-coffrets); }
+  th[data-cat="cadeaux"]::after { background: var(--c-cadeaux); }
+
+  tbody td {
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    cursor: text;
+    min-width: 80px;
+  }
+  tbody tr:hover { background: var(--surface); }
+  tbody td[contenteditable]:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+    background: var(--surface-2);
+    border-radius: 3px;
+  }
+  td.client { font-weight: 600; }
+  td.camion { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
+  .src-tag {
+    display: inline-block;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  .src-telegram { background: var(--accent-soft); color: #bfe6e5; }
+  .src-manuel { background: #3a3550; color: #c9bce0; }
+
+  td.actions { white-space: nowrap; width: 1%; }
+  .icon-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 5px;
+    font-size: 14px;
+  }
+  .icon-btn:hover { background: var(--surface-2); color: var(--danger); }
+
+  .empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-dim);
+  }
+  .empty h3 { font-size: 16px; margin-bottom: 6px; color: var(--text); }
+
+  /* ---- Modale de saisie ---- */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 40px 16px;
+    z-index: 100;
+    overflow-y: auto;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    width: 100%;
+    max-width: 520px;
+    padding: 24px;
+  }
+  .modal h2 { font-size: 17px; margin-bottom: 18px; }
+  .field { margin-bottom: 14px; }
+  .field label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .field input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 9px 12px;
+    border-radius: 7px;
+    font-size: 14px;
+  }
+  .field input:focus { outline: none; border-color: var(--accent); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .cat-label { display: flex; align-items: center; gap: 6px; }
+  .cat-chip { width: 10px; height: 10px; border-radius: 3px; }
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 20px;
+  }
+
+  .hint {
+    background: var(--surface-2);
+    border-left: 3px solid var(--accent);
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 18px;
+  }
+
+  /* ---- Bandeau config manquante ---- */
+  .config-warning {
+    background: #3a2a1a;
+    border: 1px solid #6b4a2a;
+    color: #e0b07a;
+    padding: 14px 20px;
+    margin: 16px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+  }
+  .config-warning code {
+    background: rgba(0,0,0,0.3);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 12px;
+  }
+
+  @media (max-width: 600px) {
+    .toolbar { padding: 12px; }
+    .table-wrap { margin: 0 8px 30px; }
+    .grid2 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>KYS MARINE</h1>
+    <span class="sub">Commandes du jour</span>
+  </div>
+  <div class="status">
+    <span class="dot" id="statusDot"></span>
+    <span id="statusText">Connexion…</span>
+  </div>
+</header>
+
+<div id="configWarning" class="config-warning" style="display:none;">
+  ⚠️ Configuration Firebase manquante. Colle ta config dans le fichier (cherche <code>firebaseConfig</code> dans le code) pour connecter l'application à ta base.
+</div>
+
+<div class="toolbar">
+  <button class="btn" onclick="ouvrirModale()">+ Nouvelle commande</button>
+  <input class="search" id="search" placeholder="Rechercher un client…" oninput="rendre()">
+  <span class="count" id="count"></span>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Camion</th>
+        <th>Client</th>
+        <th data-cat="etoiles">Étoiles</th>
+        <th data-cat="baby">Baby</th>
+        <th data-cat="kys">Kys</th>
+        <th data-cat="fines">Fines</th>
+        <th data-cat="easy">Easy</th>
+        <th data-cat="coffrets">Coffrets</th>
+        <th data-cat="cadeaux">Cadeaux</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <div class="empty" id="empty" style="display:none;">
+    <h3>Aucune commande</h3>
+    <p>Les commandes Telegram et les saisies manuelles apparaîtront ici.</p>
+  </div>
+</div>
+
+<!-- Modale de saisie -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2 id="modalTitle">Nouvelle commande</h2>
+    <div class="hint">
+      Saisis les produits dans chaque catégorie au format <strong>quantité x calibre + code</strong>, séparés par un espace. Exemple : <code>4x48 En3 2x12 En2</code>
+    </div>
+    <div class="grid2">
+      <div class="field">
+        <label>Camion</label>
+        <input id="f_camion" placeholder="1-St CO 7h45">
+      </div>
+      <div class="field">
+        <label>Client</label>
+        <input id="f_client" placeholder="A L'Eau Poisson">
+      </div>
+    </div>
+    <div class="field">
+      <label class="cat-label"><span class="cat-chip" style="background:var(--c-etoiles)"></span> Étoiles</label>
+      <input id="f_etoiles" placeholder="4x48 En3 2x12 En2">
+    </div>
+    <div class="grid2">
+      <div class="field">
+        <label class="cat-label"><span class="cat-chip" style="background:var(--c-baby)"></span> Baby</label>
+        <input id="f_baby" placeholder="2x96 bbk">
+      </div>
+      <div class="field">
+        <label class="cat-label"><span class="cat-chip" style="background:var(--c-kys)"></span> Kys</label>
+        <input id="f_kys" placeholder="59x9 K2">
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="field">
+        <label class="cat-label"><span class="cat-chip" style="background:var(--c-fines)"></span> Fines</label>
+        <input id="f_fines" placeholder="5x200 F3">
+      </div>
+      <div class="field">
+        <label class="cat-label"><span class="cat-chip" style="background:var(--c-easy)"></span> Easy</label>
+        <input id="f_easy" placeholder="">
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="field">
+        <label class="cat-label"><span class="cat-chip" style="background:var(--c-coffrets)"></span> Coffrets</label>
+        <input id="f_coffrets" placeholder="">
+      </div>
+      <div class="field">
+        <label class="cat-label"><span class="cat-chip" style="background:var(--c-cadeaux)"></span> Cadeaux</label>
+        <input id="f_cadeaux" placeholder="">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="fermerModale()">Annuler</button>
+      <button class="btn" onclick="enregistrerCommande()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase (compat, simple à intégrer en single-file comme huitres-suivi) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+<script>
+  // ======================================================
+  //  CONFIG FIREBASE — À REMPLIR avec ton nouveau projet
+  //  (Console Firebase > Paramètres du projet > tes applis Web)
+  // ======================================================
+  const firebaseConfig = {
+    apiKey: "AIzaSyAS_0Qt-6vc31bg0l0gqMMqMoBfu1h9-n0",
+    authDomain: "kys-marine-commandes.firebaseapp.com",
+    databaseURL: "https://kys-marine-commandes-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "kys-marine-commandes",
+    storageBucket: "kys-marine-commandes.firebasestorage.app",
+    messagingSenderId: "285971266415",
+    appId: "1:285971266415:web:03681c9e4e30464520069a"
+  };
+
+  const CATEGORIES = ["etoiles","baby","kys","fines","easy","coffrets","cadeaux"];
+  let db = null;
+  let commandes = {};   // { id: {camion, client, etoiles, ...} }
+
+  // --- Initialisation Firebase ---
+  function initFirebase() {
+    if (firebaseConfig.apiKey === "À_REMPLIR") {
+      document.getElementById("configWarning").style.display = "block";
+      setStatus(false, "Config manquante");
+      return false;
+    }
+    try {
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.database();
+      ecouterCommandes();
+      return true;
+    } catch (e) {
+      setStatus(false, "Erreur Firebase");
+      console.error(e);
+      return false;
+    }
+  }
+
+  // --- Écoute temps réel ---
+  function ecouterCommandes() {
+    db.ref("commandes").on("value", (snap) => {
+      commandes = snap.val() || {};
+      setStatus(true, "En direct");
+      rendre();
+    }, (err) => {
+      setStatus(false, "Déconnecté");
+      console.error(err);
+    });
+  }
+
+  function setStatus(ok, txt) {
+    const dot = document.getElementById("statusDot");
+    dot.className = "dot " + (ok ? "live" : "off");
+    document.getElementById("statusText").textContent = txt;
+  }
+
+  // --- Affichage du tableau ---
+  function rendre() {
+    const tbody = document.getElementById("tbody");
+    const filtre = document.getElementById("search").value.toLowerCase().trim();
+    tbody.innerHTML = "";
+
+    // Trie par date de création (plus récent en bas, comme une feuille qu'on remplit)
+    let liste = Object.entries(commandes)
+      .map(([id, c]) => ({ id, ...c }))
+      .sort((a, b) => (a.dateCreation || 0) - (b.dateCreation || 0));
+
+    if (filtre) {
+      liste = liste.filter(c => (c.client || "").toLowerCase().includes(filtre));
+    }
+
+    document.getElementById("empty").style.display = liste.length ? "none" : "block";
+    document.getElementById("count").textContent =
+      liste.length + (liste.length > 1 ? " commandes" : " commande");
+
+    for (const c of liste) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="camion" contenteditable data-id="${c.id}" data-champ="camion">${esc(c.camion)}</td>
+        <td class="client" contenteditable data-id="${c.id}" data-champ="client">${esc(c.client)}${tagSource(c.source)}</td>
+        ${CATEGORIES.map(cat =>
+          `<td contenteditable data-id="${c.id}" data-champ="${cat}">${esc(c[cat])}</td>`
+        ).join("")}
+        <td class="actions">
+          <button class="icon-btn" title="Supprimer" onclick="supprimer('${c.id}')">✕</button>
+        </td>`;
+      tbody.appendChild(tr);
+    }
+
+    // Sauvegarde sur sortie de cellule
+    tbody.querySelectorAll("td[contenteditable]").forEach(td => {
+      td.addEventListener("blur", onCellBlur);
+      td.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); td.blur(); }
+      });
+    });
+  }
+
+  function tagSource(src) {
+    if (src === "telegram") return '<span class="src-tag src-telegram">TG</span>';
+    if (src === "manuel") return '<span class="src-tag src-manuel">manuel</span>';
+    return "";
+  }
+
+  function esc(s) {
+    if (s === undefined || s === null) return "";
+    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  // --- Édition d'une cellule ---
+  function onCellBlur(e) {
+    const td = e.target;
+    const id = td.dataset.id;
+    const champ = td.dataset.champ;
+    // Pour la cellule client, on enlève le tag source du texte
+    let val = td.textContent;
+    if (champ === "client") {
+      val = val.replace(/\s*(TG|manuel)\s*$/,"").trim();
+    }
+    val = val.trim();
+    if (!db) return;
+    const ancienne = commandes[id] ? (commandes[id][champ] || "") : "";
+    if (val !== ancienne) {
+      db.ref(`commandes/${id}/${champ}`).set(val);
+    }
+  }
+
+  // --- Suppression ---
+  function supprimer(id) {
+    const c = commandes[id];
+    const nom = c && c.client ? c.client : "cette commande";
+    if (confirm(`Supprimer la commande de "${nom}" ?`)) {
+      db.ref(`commandes/${id}`).remove();
+    }
+  }
+
+  // --- Modale ---
+  function ouvrirModale() {
+    if (!db) { alert("Firebase n'est pas connecté. Renseigne la config d'abord."); return; }
+    document.getElementById("overlay").classList.add("open");
+    ["camion","client","etoiles","baby","kys","fines","easy","coffrets","cadeaux"]
+      .forEach(f => document.getElementById("f_"+f).value = "");
+    document.getElementById("f_camion").focus();
+  }
+  function fermerModale() {
+    document.getElementById("overlay").classList.remove("open");
+  }
+
+  function enregistrerCommande() {
+    const client = document.getElementById("f_client").value.trim();
+    if (!client) { alert("Le nom du client est obligatoire."); return; }
+
+    const cmd = {
+      camion: document.getElementById("f_camion").value.trim(),
+      client: client,
+      source: "manuel",
+      dateCreation: Date.now()
+    };
+    CATEGORIES.forEach(cat => {
+      cmd[cat] = document.getElementById("f_"+cat).value.trim();
+    });
+
+    db.ref("commandes").push(cmd);
+    fermerModale();
+  }
+
+  // Fermer la modale en cliquant à l'extérieur
+  document.getElementById("overlay").addEventListener("click", (e) => {
+    if (e.target.id === "overlay") fermerModale();
+  });
+  // Échap ferme la modale
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") fermerModale();
+  });
+
+  // --- Go ---
+  initFirebase();
+</script>
+</body>
+</html>
