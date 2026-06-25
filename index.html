@@ -3,22 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>KYS Marine — Commandes</title>
+<title>KYS Marine — Commandes & Stock</title>
 <style>
   :root {
-    /* Palette inspirée des huîtres : nacre, ardoise, et accents par catégorie */
     --bg: #0f1419;
     --surface: #161d26;
     --surface-2: #1d2630;
     --border: #2a3540;
     --text: #e8edf2;
     --text-dim: #8a98a8;
-    --accent: #4a9d9c;        /* bleu-vert lagune */
+    --accent: #4a9d9c;
     --accent-soft: #2d5f5e;
     --danger: #c4564f;
+    --warn: #d99a3b;
     --ok: #5a9d6b;
 
-    /* Couleurs par catégorie (rappel de la Sheet) */
     --c-etoiles: #e0a93b;
     --c-baby: #d98aab;
     --c-kys: #4a8fd4;
@@ -51,34 +50,50 @@
     top: 0;
     z-index: 50;
   }
-  .brand {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-  }
-  .brand h1 {
-    font-size: 18px;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-  }
-  .brand .sub {
-    font-size: 12px;
-    color: var(--text-dim);
-  }
-  .status {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 12px;
-    color: var(--text-dim);
-  }
-  .dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--text-dim);
-    transition: background 0.3s;
-  }
+  .brand { display: flex; align-items: baseline; gap: 10px; }
+  .brand h1 { font-size: 18px; font-weight: 600; letter-spacing: 0.5px; }
+  .brand .sub { font-size: 12px; color: var(--text-dim); }
+  .status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-dim); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); transition: background 0.3s; }
   .dot.live { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
   .dot.off { background: var(--danger); }
+
+  /* ---- Onglets ---- */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    padding: 0 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 53px;
+    z-index: 49;
+  }
+  .tab {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    padding: 12px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab .badge {
+    background: var(--danger);
+    color: #fff;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 10px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+
+  .page { display: none; }
+  .page.active { display: block; }
 
   /* ---- Barre d'actions ---- */
   .toolbar {
@@ -101,67 +116,36 @@
   }
   .btn:hover { background: #5ab0af; }
   .btn:active { transform: translateY(1px); }
-  .btn.ghost {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--text-dim);
-  }
+  .btn.ghost { background: transparent; border: 1px solid var(--border); color: var(--text-dim); }
   .btn.ghost:hover { background: var(--surface-2); color: var(--text); }
 
   .search {
-    flex: 1;
-    min-width: 180px;
-    max-width: 320px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 9px 14px;
-    border-radius: 7px;
-    font-size: 13px;
+    flex: 1; min-width: 180px; max-width: 320px;
+    background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    padding: 9px 14px; border-radius: 7px; font-size: 13px;
   }
   .search::placeholder { color: var(--text-dim); }
-  .count {
-    font-size: 12px;
-    color: var(--text-dim);
-    margin-left: auto;
-  }
+  .count { font-size: 12px; color: var(--text-dim); margin-left: auto; }
 
-  /* ---- Tableau ---- */
+  /* ---- Tableaux ---- */
   .table-wrap {
     margin: 0 20px 40px;
     border: 1px solid var(--border);
     border-radius: 10px;
     overflow: auto;
-    max-height: calc(100vh - 160px);
+    max-height: calc(100vh - 210px);
   }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    min-width: 900px;
-  }
+  table { width: 100%; border-collapse: collapse; }
+  #tableCommandes { min-width: 900px; }
   thead th {
-    position: sticky;
-    top: 0;
-    background: var(--surface-2);
-    color: #fff;
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    padding: 11px 12px;
-    text-align: left;
-    border-bottom: 2px solid var(--border);
-    white-space: nowrap;
-    z-index: 10;
+    position: sticky; top: 0;
+    background: var(--surface-2); color: #fff;
+    font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 11px 12px; text-align: left; border-bottom: 2px solid var(--border);
+    white-space: nowrap; z-index: 10;
   }
-  /* Liseré coloré sous chaque en-tête catégorie */
   th[data-cat]::after {
-    content: '';
-    display: block;
-    height: 3px;
-    margin-top: 7px;
-    margin-bottom: -11px;
-    border-radius: 2px;
+    content: ''; display: block; height: 3px; margin-top: 7px; margin-bottom: -11px; border-radius: 2px;
   }
   th[data-cat="etoiles"]::after { background: var(--c-etoiles); }
   th[data-cat="baby"]::after { background: var(--c-baby); }
@@ -172,132 +156,100 @@
   th[data-cat="cadeaux"]::after { background: var(--c-cadeaux); }
 
   tbody td {
-    padding: 9px 12px;
-    border-bottom: 1px solid var(--border);
-    vertical-align: top;
-    cursor: text;
-    min-width: 80px;
+    padding: 9px 12px; border-bottom: 1px solid var(--border);
+    vertical-align: top; cursor: text; min-width: 80px;
   }
   tbody tr:hover { background: var(--surface); }
   tbody td[contenteditable]:focus {
-    outline: 2px solid var(--accent);
-    outline-offset: -2px;
-    background: var(--surface-2);
-    border-radius: 3px;
+    outline: 2px solid var(--accent); outline-offset: -2px;
+    background: var(--surface-2); border-radius: 3px;
   }
   td.client { font-weight: 600; }
   td.camion { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
-  .src-tag {
-    display: inline-block;
-    font-size: 10px;
-    padding: 1px 6px;
-    border-radius: 4px;
-    margin-left: 6px;
-    vertical-align: middle;
-  }
+  .src-tag { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 4px; margin-left: 6px; vertical-align: middle; }
   .src-telegram { background: var(--accent-soft); color: #bfe6e5; }
   .src-manuel { background: #3a3550; color: #c9bce0; }
-
   td.actions { white-space: nowrap; width: 1%; }
-  .icon-btn {
-    background: transparent;
-    border: none;
-    color: var(--text-dim);
-    cursor: pointer;
-    padding: 4px 6px;
-    border-radius: 5px;
-    font-size: 14px;
-  }
+  .icon-btn { background: transparent; border: none; color: var(--text-dim); cursor: pointer; padding: 4px 6px; border-radius: 5px; font-size: 14px; }
   .icon-btn:hover { background: var(--surface-2); color: var(--danger); }
 
-  .empty {
-    text-align: center;
-    padding: 60px 20px;
-    color: var(--text-dim);
-  }
+  .empty { text-align: center; padding: 60px 20px; color: var(--text-dim); }
   .empty h3 { font-size: 16px; margin-bottom: 6px; color: var(--text); }
 
-  /* ---- Modale de saisie ---- */
+  /* ---- Page Stock : cartes ---- */
+  .stock-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 14px;
+    padding: 4px 20px 40px;
+  }
+  .stock-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    position: relative;
+    transition: border-color 0.2s;
+  }
+  .stock-card.alerte { border-color: var(--warn); }
+  .stock-card.rupture { border-color: var(--danger); }
+  .stock-card .taille {
+    font-size: 13px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;
+  }
+  .stock-card .dispo {
+    font-size: 38px; font-weight: 700; line-height: 1; margin-bottom: 2px;
+  }
+  .stock-card.alerte .dispo { color: var(--warn); }
+  .stock-card.rupture .dispo { color: var(--danger); }
+  .stock-card .dispo-label { font-size: 11px; color: var(--text-dim); margin-bottom: 14px; }
+  .stock-card .detail { font-size: 12px; color: var(--text-dim); display: flex; justify-content: space-between; padding: 3px 0; border-top: 1px solid var(--border); }
+  .stock-card .detail span:last-child { color: var(--text); font-weight: 600; }
+  .stock-card .card-actions { position: absolute; top: 12px; right: 12px; display: flex; gap: 2px; }
+  .alerte-pill {
+    display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px;
+    margin-top: 10px; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .alerte-pill.warn { background: #3a2f1a; color: var(--warn); }
+  .alerte-pill.rupt { background: #3a1d1a; color: var(--danger); }
+
+  /* ---- Modales ---- */
   .overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.6);
-    display: none;
-    align-items: flex-start;
-    justify-content: center;
-    padding: 40px 16px;
-    z-index: 100;
-    overflow-y: auto;
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    display: none; align-items: flex-start; justify-content: center;
+    padding: 40px 16px; z-index: 100; overflow-y: auto;
   }
   .overlay.open { display: flex; }
   .modal {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    width: 100%;
-    max-width: 520px;
-    padding: 24px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; width: 100%; max-width: 520px; padding: 24px;
   }
   .modal h2 { font-size: 17px; margin-bottom: 18px; }
   .field { margin-bottom: 14px; }
-  .field label {
-    display: block;
-    font-size: 12px;
-    color: var(--text-dim);
-    margin-bottom: 5px;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-  }
+  .field label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.4px; }
   .field input {
-    width: 100%;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 9px 12px;
-    border-radius: 7px;
-    font-size: 14px;
+    width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    padding: 9px 12px; border-radius: 7px; font-size: 14px;
   }
   .field input:focus { outline: none; border-color: var(--accent); }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .cat-label { display: flex; align-items: center; gap: 6px; }
   .cat-chip { width: 10px; height: 10px; border-radius: 3px; }
-  .modal-actions {
-    display: flex;
-    gap: 10px;
-    justify-content: flex-end;
-    margin-top: 20px;
-  }
-
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
   .hint {
-    background: var(--surface-2);
-    border-left: 3px solid var(--accent);
-    padding: 10px 14px;
-    border-radius: 6px;
-    font-size: 12px;
-    color: var(--text-dim);
-    margin-bottom: 18px;
+    background: var(--surface-2); border-left: 3px solid var(--accent);
+    padding: 10px 14px; border-radius: 6px; font-size: 12px; color: var(--text-dim); margin-bottom: 18px;
   }
 
-  /* ---- Bandeau config manquante ---- */
   .config-warning {
-    background: #3a2a1a;
-    border: 1px solid #6b4a2a;
-    color: #e0b07a;
-    padding: 14px 20px;
-    margin: 16px 20px;
-    border-radius: 8px;
-    font-size: 13px;
+    background: #3a2a1a; border: 1px solid #6b4a2a; color: #e0b07a;
+    padding: 14px 20px; margin: 16px 20px; border-radius: 8px; font-size: 13px;
   }
-  .config-warning code {
-    background: rgba(0,0,0,0.3);
-    padding: 1px 5px;
-    border-radius: 3px;
-    font-size: 12px;
-  }
+  .config-warning code { background: rgba(0,0,0,0.3); padding: 1px 5px; border-radius: 3px; font-size: 12px; }
 
   @media (max-width: 600px) {
     .toolbar { padding: 12px; }
     .table-wrap { margin: 0 8px 30px; }
+    .stock-grid { padding: 4px 8px 30px; }
     .grid2 { grid-template-columns: 1fr; }
   }
 </style>
@@ -307,7 +259,7 @@
 <header>
   <div class="brand">
     <h1>KYS MARINE</h1>
-    <span class="sub">Commandes du jour</span>
+    <span class="sub">Commandes &amp; stock</span>
   </div>
   <div class="status">
     <span class="dot" id="statusDot"></span>
@@ -315,106 +267,126 @@
   </div>
 </header>
 
+<nav class="tabs">
+  <button class="tab active" id="tabBtnCommandes" onclick="afficherPage('commandes')">Commandes</button>
+  <button class="tab" id="tabBtnStock" onclick="afficherPage('stock')">Stock bourriches <span class="badge" id="stockBadge" style="display:none;">0</span></button>
+</nav>
+
 <div id="configWarning" class="config-warning" style="display:none;">
-  ⚠️ Configuration Firebase manquante. Colle ta config dans le fichier (cherche <code>firebaseConfig</code> dans le code) pour connecter l'application à ta base.
+  ⚠️ Configuration Firebase manquante. Renseigne <code>firebaseConfig</code> dans le code.
 </div>
 
-<div class="toolbar">
-  <button class="btn" onclick="ouvrirModale()">+ Nouvelle commande</button>
-  <input class="search" id="search" placeholder="Rechercher un client…" oninput="rendre()">
-  <span class="count" id="count"></span>
-</div>
+<!-- ================= PAGE COMMANDES ================= -->
+<div class="page active" id="pageCommandes">
+  <div class="toolbar">
+    <button class="btn" onclick="ouvrirModaleCommande()">+ Nouvelle commande</button>
+    <input class="search" id="search" placeholder="Rechercher un client…" oninput="rendreCommandes()">
+    <span class="count" id="count"></span>
+  </div>
 
-<div class="table-wrap">
-  <table>
-    <thead>
-      <tr>
-        <th>Camion</th>
-        <th>Client</th>
-        <th data-cat="etoiles">Étoiles</th>
-        <th data-cat="baby">Baby</th>
-        <th data-cat="kys">Kys</th>
-        <th data-cat="fines">Fines</th>
-        <th data-cat="easy">Easy</th>
-        <th data-cat="coffrets">Coffrets</th>
-        <th data-cat="cadeaux">Cadeaux</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody id="tbody"></tbody>
-  </table>
-  <div class="empty" id="empty" style="display:none;">
-    <h3>Aucune commande</h3>
-    <p>Les commandes Telegram et les saisies manuelles apparaîtront ici.</p>
+  <div class="table-wrap">
+    <table id="tableCommandes">
+      <thead>
+        <tr>
+          <th>Camion</th>
+          <th>Client</th>
+          <th data-cat="etoiles">Étoiles</th>
+          <th data-cat="baby">Baby</th>
+          <th data-cat="kys">Kys</th>
+          <th data-cat="fines">Fines</th>
+          <th data-cat="easy">Easy</th>
+          <th data-cat="coffrets">Coffrets</th>
+          <th data-cat="cadeaux">Cadeaux</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div class="empty" id="emptyCommandes" style="display:none;">
+      <h3>Aucune commande</h3>
+      <p>Les commandes Telegram et les saisies manuelles apparaîtront ici.</p>
+    </div>
   </div>
 </div>
 
-<!-- Modale de saisie -->
-<div class="overlay" id="overlay">
+<!-- ================= PAGE STOCK ================= -->
+<div class="page" id="pageStock">
+  <div class="toolbar">
+    <button class="btn" onclick="ouvrirModaleStock()">+ Nouvelle taille</button>
+    <span class="count" id="countStock"></span>
+  </div>
+  <div class="stock-grid" id="stockGrid"></div>
+  <div class="empty" id="emptyStock" style="display:none;">
+    <h3>Aucune taille de bourriche</h3>
+    <p>Ajoute une taille (48, 12, 96…) avec son stock initial pour suivre la consommation.</p>
+  </div>
+</div>
+
+<!-- Modale commande -->
+<div class="overlay" id="overlayCommande">
   <div class="modal">
-    <h2 id="modalTitle">Nouvelle commande</h2>
+    <h2>Nouvelle commande</h2>
     <div class="hint">
-      Saisis les produits dans chaque catégorie au format <strong>quantité x calibre + code</strong>, séparés par un espace. Exemple : <code>4x48 En3 2x12 En2</code>
+      Format par catégorie : <strong>quantité x calibre + code</strong>, séparés par un espace. Exemple : <code>4x48 En3 2x12 En2</code>
     </div>
     <div class="grid2">
-      <div class="field">
-        <label>Camion</label>
-        <input id="f_camion" placeholder="1-St CO 7h45">
-      </div>
-      <div class="field">
-        <label>Client</label>
-        <input id="f_client" placeholder="A L'Eau Poisson">
-      </div>
+      <div class="field"><label>Camion</label><input id="f_camion" placeholder="1-St CO 7h45"></div>
+      <div class="field"><label>Client</label><input id="f_client" placeholder="A L'Eau Poisson"></div>
     </div>
-    <div class="field">
-      <label class="cat-label"><span class="cat-chip" style="background:var(--c-etoiles)"></span> Étoiles</label>
-      <input id="f_etoiles" placeholder="4x48 En3 2x12 En2">
+    <div class="field"><label class="cat-label"><span class="cat-chip" style="background:var(--c-etoiles)"></span> Étoiles</label><input id="f_etoiles" placeholder="4x48 En3 2x12 En2"></div>
+    <div class="grid2">
+      <div class="field"><label class="cat-label"><span class="cat-chip" style="background:var(--c-baby)"></span> Baby</label><input id="f_baby" placeholder="2x96 bbk"></div>
+      <div class="field"><label class="cat-label"><span class="cat-chip" style="background:var(--c-kys)"></span> Kys</label><input id="f_kys" placeholder="59x9 K2"></div>
     </div>
     <div class="grid2">
-      <div class="field">
-        <label class="cat-label"><span class="cat-chip" style="background:var(--c-baby)"></span> Baby</label>
-        <input id="f_baby" placeholder="2x96 bbk">
-      </div>
-      <div class="field">
-        <label class="cat-label"><span class="cat-chip" style="background:var(--c-kys)"></span> Kys</label>
-        <input id="f_kys" placeholder="59x9 K2">
-      </div>
+      <div class="field"><label class="cat-label"><span class="cat-chip" style="background:var(--c-fines)"></span> Fines</label><input id="f_fines" placeholder="5x200 F3"></div>
+      <div class="field"><label class="cat-label"><span class="cat-chip" style="background:var(--c-easy)"></span> Easy</label><input id="f_easy"></div>
     </div>
     <div class="grid2">
-      <div class="field">
-        <label class="cat-label"><span class="cat-chip" style="background:var(--c-fines)"></span> Fines</label>
-        <input id="f_fines" placeholder="5x200 F3">
-      </div>
-      <div class="field">
-        <label class="cat-label"><span class="cat-chip" style="background:var(--c-easy)"></span> Easy</label>
-        <input id="f_easy" placeholder="">
-      </div>
-    </div>
-    <div class="grid2">
-      <div class="field">
-        <label class="cat-label"><span class="cat-chip" style="background:var(--c-coffrets)"></span> Coffrets</label>
-        <input id="f_coffrets" placeholder="">
-      </div>
-      <div class="field">
-        <label class="cat-label"><span class="cat-chip" style="background:var(--c-cadeaux)"></span> Cadeaux</label>
-        <input id="f_cadeaux" placeholder="">
-      </div>
+      <div class="field"><label class="cat-label"><span class="cat-chip" style="background:var(--c-coffrets)"></span> Coffrets</label><input id="f_coffrets"></div>
+      <div class="field"><label class="cat-label"><span class="cat-chip" style="background:var(--c-cadeaux)"></span> Cadeaux</label><input id="f_cadeaux"></div>
     </div>
     <div class="modal-actions">
-      <button class="btn ghost" onclick="fermerModale()">Annuler</button>
+      <button class="btn ghost" onclick="fermerModale('overlayCommande')">Annuler</button>
       <button class="btn" onclick="enregistrerCommande()">Enregistrer</button>
     </div>
   </div>
 </div>
 
-<!-- Firebase (compat, simple à intégrer en single-file comme huitres-suivi) -->
+<!-- Modale stock -->
+<div class="overlay" id="overlayStock">
+  <div class="modal">
+    <h2 id="stockModalTitle">Nouvelle taille de bourriche</h2>
+    <div class="hint">
+      La taille correspond au 2ᵉ chiffre des commandes (ex. dans <code>4x48</code>, la taille est <strong>48</strong>). Le disponible se calcule tout seul.
+    </div>
+    <div class="field">
+      <label>Taille (numéro)</label>
+      <input id="s_taille" type="number" placeholder="48" inputmode="numeric">
+    </div>
+    <div class="grid2">
+      <div class="field">
+        <label>Stock initial</label>
+        <input id="s_initial" type="number" placeholder="450" inputmode="numeric">
+      </div>
+      <div class="field">
+        <label>Seuil d'alerte</label>
+        <input id="s_seuil" type="number" placeholder="50" inputmode="numeric">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="fermerModale('overlayStock')">Annuler</button>
+      <button class="btn" onclick="enregistrerStock()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
 <script>
   // ======================================================
-  //  CONFIG FIREBASE — À REMPLIR avec ton nouveau projet
-  //  (Console Firebase > Paramètres du projet > tes applis Web)
+  //  CONFIG FIREBASE
   // ======================================================
   const firebaseConfig = {
     apiKey: "AIzaSyAS_0Qt-6vc31bg0l0gqMMqMoBfu1h9-n0",
@@ -429,60 +401,153 @@
   const CATEGORIES = ["etoiles","baby","kys","fines","easy","coffrets","cadeaux"];
   let db = null;
   let commandes = {};   // { id: {camion, client, etoiles, ...} }
+  let stock = {};       // { tailleId: {taille, initial, seuil} }
+  let editStockId = null;
 
-  // --- Initialisation Firebase ---
+  // --- Init Firebase ---
   function initFirebase() {
     if (firebaseConfig.apiKey === "À_REMPLIR") {
       document.getElementById("configWarning").style.display = "block";
       setStatus(false, "Config manquante");
-      return false;
+      return;
     }
     try {
       firebase.initializeApp(firebaseConfig);
       db = firebase.database();
-      ecouterCommandes();
-      return true;
+      ecouter();
     } catch (e) {
       setStatus(false, "Erreur Firebase");
       console.error(e);
-      return false;
     }
   }
 
-  // --- Écoute temps réel ---
-  function ecouterCommandes() {
+  function ecouter() {
     db.ref("commandes").on("value", (snap) => {
       commandes = snap.val() || {};
       setStatus(true, "En direct");
-      rendre();
-    }, (err) => {
-      setStatus(false, "Déconnecté");
-      console.error(err);
+      rendreCommandes();
+      rendreStock();   // le stock dépend des commandes
+    }, (err) => { setStatus(false, "Déconnecté"); console.error(err); });
+
+    db.ref("stock").on("value", (snap) => {
+      stock = snap.val() || {};
+      rendreStock();
     });
   }
 
   function setStatus(ok, txt) {
-    const dot = document.getElementById("statusDot");
-    dot.className = "dot " + (ok ? "live" : "off");
+    document.getElementById("statusDot").className = "dot " + (ok ? "live" : "off");
     document.getElementById("statusText").textContent = txt;
   }
 
-  // --- Affichage du tableau ---
-  function rendre() {
+  // --- Navigation onglets ---
+  function afficherPage(p) {
+    document.getElementById("pageCommandes").classList.toggle("active", p === "commandes");
+    document.getElementById("pageStock").classList.toggle("active", p === "stock");
+    document.getElementById("tabBtnCommandes").classList.toggle("active", p === "commandes");
+    document.getElementById("tabBtnStock").classList.toggle("active", p === "stock");
+  }
+
+  // ======================================================
+  //  CALCUL DU STOCK
+  //  Parcourt toutes les commandes, additionne les quantités par taille
+  // ======================================================
+  function calculerConsommation() {
+    const conso = {}; // { taille(number): quantité totale commandée }
+    for (const id in commandes) {
+      const c = commandes[id];
+      for (const cat of CATEGORIES) {
+        const cellule = c[cat];
+        if (!cellule) continue;
+        // Cherche tous les motifs "quantité x taille" (ex: 4x48, 2 x 12, 59x9)
+        const motifs = String(cellule).matchAll(/(\d+)\s*x\s*(\d+)/g);
+        for (const m of motifs) {
+          const quantite = parseInt(m[1], 10);
+          const taille = parseInt(m[2], 10);
+          if (!isNaN(quantite) && !isNaN(taille)) {
+            conso[taille] = (conso[taille] || 0) + quantite;
+          }
+        }
+      }
+    }
+    return conso;
+  }
+
+  // --- Affichage des cartes de stock ---
+  function rendreStock() {
+    const grid = document.getElementById("stockGrid");
+    const conso = calculerConsommation();
+
+    const liste = Object.entries(stock)
+      .map(([id, s]) => ({ id, ...s }))
+      .sort((a, b) => (a.taille || 0) - (b.taille || 0));
+
+    document.getElementById("emptyStock").style.display = liste.length ? "none" : "block";
+    document.getElementById("countStock").textContent =
+      liste.length + (liste.length > 1 ? " tailles" : " taille");
+
+    let nbAlertes = 0;
+    grid.innerHTML = "";
+
+    for (const s of liste) {
+      const initial = Number(s.initial) || 0;
+      const seuil = Number(s.seuil) || 0;
+      const commande = conso[Number(s.taille)] || 0;
+      const dispo = initial - commande;
+
+      let etat = "";
+      let pill = "";
+      if (dispo <= 0) {
+        etat = "rupture"; nbAlertes++;
+        pill = '<span class="alerte-pill rupt">Rupture</span>';
+      } else if (dispo <= seuil) {
+        etat = "alerte"; nbAlertes++;
+        pill = '<span class="alerte-pill warn">Stock bas</span>';
+      }
+
+      const card = document.createElement("div");
+      card.className = "stock-card " + etat;
+      card.innerHTML = `
+        <div class="card-actions">
+          <button class="icon-btn" title="Modifier" onclick="ouvrirModaleStock('${s.id}')">✎</button>
+          <button class="icon-btn" title="Supprimer" onclick="supprimerStock('${s.id}')">✕</button>
+        </div>
+        <div class="taille">Bourriche ${esc(s.taille)}</div>
+        <div class="dispo">${dispo}</div>
+        <div class="dispo-label">disponibles</div>
+        <div class="detail"><span>Stock initial</span><span>${initial}</span></div>
+        <div class="detail"><span>Commandé</span><span>${commande}</span></div>
+        <div class="detail"><span>Seuil d'alerte</span><span>${seuil}</span></div>
+        ${pill}
+      `;
+      grid.appendChild(card);
+    }
+
+    // Badge sur l'onglet
+    const badge = document.getElementById("stockBadge");
+    if (nbAlertes > 0) {
+      badge.style.display = "inline-block";
+      badge.textContent = nbAlertes;
+    } else {
+      badge.style.display = "none";
+    }
+  }
+
+  // ======================================================
+  //  COMMANDES
+  // ======================================================
+  function rendreCommandes() {
     const tbody = document.getElementById("tbody");
     const filtre = document.getElementById("search").value.toLowerCase().trim();
     tbody.innerHTML = "";
 
-    // Trie par date de création (plus récent en bas, comme une feuille qu'on remplit)
     let liste = Object.entries(commandes)
       .map(([id, c]) => ({ id, ...c }))
       .sort((a, b) => (a.dateCreation || 0) - (b.dateCreation || 0));
 
-    if (filtre) {
-      liste = liste.filter(c => (c.client || "").toLowerCase().includes(filtre));
-    }
+    if (filtre) liste = liste.filter(c => (c.client || "").toLowerCase().includes(filtre));
 
-    document.getElementById("empty").style.display = liste.length ? "none" : "block";
+    document.getElementById("emptyCommandes").style.display = liste.length ? "none" : "block";
     document.getElementById("count").textContent =
       liste.length + (liste.length > 1 ? " commandes" : " commande");
 
@@ -491,21 +556,14 @@
       tr.innerHTML = `
         <td class="camion" contenteditable data-id="${c.id}" data-champ="camion">${esc(c.camion)}</td>
         <td class="client" contenteditable data-id="${c.id}" data-champ="client">${esc(c.client)}${tagSource(c.source)}</td>
-        ${CATEGORIES.map(cat =>
-          `<td contenteditable data-id="${c.id}" data-champ="${cat}">${esc(c[cat])}</td>`
-        ).join("")}
-        <td class="actions">
-          <button class="icon-btn" title="Supprimer" onclick="supprimer('${c.id}')">✕</button>
-        </td>`;
+        ${CATEGORIES.map(cat => `<td contenteditable data-id="${c.id}" data-champ="${cat}">${esc(c[cat])}</td>`).join("")}
+        <td class="actions"><button class="icon-btn" title="Supprimer" onclick="supprimerCommande('${c.id}')">✕</button></td>`;
       tbody.appendChild(tr);
     }
 
-    // Sauvegarde sur sortie de cellule
     tbody.querySelectorAll("td[contenteditable]").forEach(td => {
       td.addEventListener("blur", onCellBlur);
-      td.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") { e.preventDefault(); td.blur(); }
-      });
+      td.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); td.blur(); } });
     });
   }
 
@@ -520,73 +578,103 @@
     return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   }
 
-  // --- Édition d'une cellule ---
   function onCellBlur(e) {
     const td = e.target;
-    const id = td.dataset.id;
-    const champ = td.dataset.champ;
-    // Pour la cellule client, on enlève le tag source du texte
+    const id = td.dataset.id, champ = td.dataset.champ;
     let val = td.textContent;
-    if (champ === "client") {
-      val = val.replace(/\s*(TG|manuel)\s*$/,"").trim();
-    }
+    if (champ === "client") val = val.replace(/\s*(TG|manuel)\s*$/,"").trim();
     val = val.trim();
     if (!db) return;
     const ancienne = commandes[id] ? (commandes[id][champ] || "") : "";
-    if (val !== ancienne) {
-      db.ref(`commandes/${id}/${champ}`).set(val);
-    }
+    if (val !== ancienne) db.ref(`commandes/${id}/${champ}`).set(val);
   }
 
-  // --- Suppression ---
-  function supprimer(id) {
+  function supprimerCommande(id) {
     const c = commandes[id];
     const nom = c && c.client ? c.client : "cette commande";
-    if (confirm(`Supprimer la commande de "${nom}" ?`)) {
-      db.ref(`commandes/${id}`).remove();
-    }
+    if (confirm(`Supprimer la commande de "${nom}" ?`)) db.ref(`commandes/${id}`).remove();
   }
 
-  // --- Modale ---
-  function ouvrirModale() {
-    if (!db) { alert("Firebase n'est pas connecté. Renseigne la config d'abord."); return; }
-    document.getElementById("overlay").classList.add("open");
+  function ouvrirModaleCommande() {
+    if (!db) { alert("Firebase n'est pas connecté."); return; }
+    document.getElementById("overlayCommande").classList.add("open");
     ["camion","client","etoiles","baby","kys","fines","easy","coffrets","cadeaux"]
       .forEach(f => document.getElementById("f_"+f).value = "");
     document.getElementById("f_camion").focus();
-  }
-  function fermerModale() {
-    document.getElementById("overlay").classList.remove("open");
   }
 
   function enregistrerCommande() {
     const client = document.getElementById("f_client").value.trim();
     if (!client) { alert("Le nom du client est obligatoire."); return; }
-
     const cmd = {
       camion: document.getElementById("f_camion").value.trim(),
-      client: client,
-      source: "manuel",
-      dateCreation: Date.now()
+      client: client, source: "manuel", dateCreation: Date.now()
     };
-    CATEGORIES.forEach(cat => {
-      cmd[cat] = document.getElementById("f_"+cat).value.trim();
-    });
-
+    CATEGORIES.forEach(cat => cmd[cat] = document.getElementById("f_"+cat).value.trim());
     db.ref("commandes").push(cmd);
-    fermerModale();
+    fermerModale("overlayCommande");
   }
 
-  // Fermer la modale en cliquant à l'extérieur
-  document.getElementById("overlay").addEventListener("click", (e) => {
-    if (e.target.id === "overlay") fermerModale();
+  // ======================================================
+  //  STOCK : ajout / édition / suppression
+  // ======================================================
+  function ouvrirModaleStock(id) {
+    if (!db) { alert("Firebase n'est pas connecté."); return; }
+    editStockId = id || null;
+    document.getElementById("stockModalTitle").textContent =
+      id ? "Modifier la taille" : "Nouvelle taille de bourriche";
+    if (id && stock[id]) {
+      document.getElementById("s_taille").value = stock[id].taille || "";
+      document.getElementById("s_initial").value = stock[id].initial || "";
+      document.getElementById("s_seuil").value = stock[id].seuil || "";
+    } else {
+      document.getElementById("s_taille").value = "";
+      document.getElementById("s_initial").value = "";
+      document.getElementById("s_seuil").value = "";
+    }
+    document.getElementById("overlayStock").classList.add("open");
+    if (!id) document.getElementById("s_taille").focus();
+  }
+
+  function enregistrerStock() {
+    const taille = parseInt(document.getElementById("s_taille").value, 10);
+    const initial = parseInt(document.getElementById("s_initial").value, 10);
+    const seuil = parseInt(document.getElementById("s_seuil").value, 10);
+
+    if (isNaN(taille)) { alert("La taille est obligatoire (un nombre, ex. 48)."); return; }
+    if (isNaN(initial)) { alert("Le stock initial est obligatoire."); return; }
+
+    const data = { taille: taille, initial: initial, seuil: isNaN(seuil) ? 0 : seuil };
+
+    if (editStockId) {
+      db.ref("stock/" + editStockId).update(data);
+    } else {
+      // Vérifie qu'une taille identique n'existe pas déjà
+      const existe = Object.values(stock).some(s => Number(s.taille) === taille);
+      if (existe) { alert("Une taille " + taille + " existe déjà. Modifie-la plutôt."); return; }
+      // Clé lisible = la taille elle-même
+      db.ref("stock/" + taille).set(data);
+    }
+    fermerModale("overlayStock");
+  }
+
+  function supprimerStock(id) {
+    const s = stock[id];
+    const t = s ? s.taille : id;
+    if (confirm(`Supprimer la taille ${t} ?`)) db.ref("stock/" + id).remove();
+  }
+
+  // --- Utilitaires modales ---
+  function fermerModale(idOverlay) {
+    document.getElementById(idOverlay).classList.remove("open");
+  }
+  document.querySelectorAll(".overlay").forEach(ov => {
+    ov.addEventListener("click", (e) => { if (e.target === ov) ov.classList.remove("open"); });
   });
-  // Échap ferme la modale
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") fermerModale();
+    if (e.key === "Escape") document.querySelectorAll(".overlay.open").forEach(ov => ov.classList.remove("open"));
   });
 
-  // --- Go ---
   initFirebase();
 </script>
 </body>
