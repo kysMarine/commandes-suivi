@@ -231,6 +231,11 @@
     padding: 9px 12px; border-radius: 7px; font-size: 14px;
   }
   .field input:focus { outline: none; border-color: var(--accent); }
+  .select-camion {
+    width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    padding: 9px 12px; border-radius: 7px; font-size: 14px; cursor: pointer;
+  }
+  .select-camion:focus { outline: none; border-color: var(--accent); }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .cat-label { display: flex; align-items: center; gap: 6px; }
   .cat-chip { width: 10px; height: 10px; border-radius: 3px; }
@@ -330,7 +335,18 @@
       Format par catégorie : <strong>quantité x calibre + code</strong>, séparés par un espace. Exemple : <code>4x48 En3 2x12 En2</code>
     </div>
     <div class="grid2">
-      <div class="field"><label>Camion</label><input id="f_camion" placeholder="1-St CO 7h45"></div>
+      <div class="field"><label>Camion</label>
+        <select id="f_camion" class="select-camion">
+          <option value="">— Choisir —</option>
+          <option value="1-St CO 7h45">1-St CO 7h45</option>
+          <option value="2-LA STEF 8h30">2-LA STEF 8h30</option>
+          <option value="3-DELANCHY 10H">3-DELANCHY 10H</option>
+          <option value="4-DELANCHY 11h30">4-DELANCHY 11h30</option>
+          <option value="5-LA STEF 13h">5-LA STEF 13h</option>
+          <option value="ENLEVEMENT">ENLEVEMENT</option>
+          <option value="3,5-LIVRAISON">3,5-LIVRAISON</option>
+        </select>
+      </div>
       <div class="field"><label>Client</label><input id="f_client" placeholder="A L'Eau Poisson"></div>
     </div>
     <div class="field"><label class="cat-label"><span class="cat-chip" style="background:var(--c-etoiles)"></span> Étoiles</label><input id="f_etoiles" placeholder="4x48 En3 2x12 En2"></div>
