@@ -61,6 +61,35 @@
     padding: 6px 12px; border-radius: 7px; font-size: 12px; font-weight: 600; cursor: pointer; margin-left: 8px;
   }
   .btn-logout:hover { background: var(--surface-2); color: var(--text); }
+  .pending-icon { font-size: 48px; margin-bottom: 14px; }
+
+  /* ---- Page Utilisateurs ---- */
+  .users-wrap {
+    margin: 0 20px 40px; border: 1px solid var(--border); border-radius: 10px;
+    overflow: auto; max-height: calc(100vh - 210px);
+  }
+  #tableUsers { width: 100%; border-collapse: collapse; min-width: 700px; }
+  .badge-statut {
+    display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 10px;
+    text-transform: uppercase; letter-spacing: 0.3px;
+  }
+  .badge-statut.valide { background: #173a26; color: var(--ok); }
+  .badge-statut.attente { background: #3a2f17; color: var(--warn); }
+  .badge-role {
+    display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 10px; border-radius: 10px;
+  }
+  .badge-role.admin { background: #2d2540; color: #b89ce0; }
+  .badge-role.employe { background: var(--surface-2); color: var(--text-dim); }
+  .user-actions { white-space: nowrap; }
+  .user-actions .btn-mini {
+    background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+    padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; margin-right: 4px;
+  }
+  .user-actions .btn-mini:hover { background: var(--surface-2); color: var(--text); }
+  .user-actions .btn-mini.valider { border-color: var(--ok); color: var(--ok); }
+  .user-actions .btn-mini.valider:hover { background: #173a26; }
+  .user-actions .btn-mini.suppr:hover { background: #3a1d1a; color: var(--danger); border-color: var(--danger); }
+  .user-moi { font-size: 11px; color: var(--text-dim); font-style: italic; }
 
   body {
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -358,6 +387,22 @@
   </div>
 </div>
 
+<!-- ================= ÉCRAN EN ATTENTE DE VALIDATION ================= -->
+<div id="pendingScreen" class="auth-screen" style="display:none;">
+  <div class="auth-box" style="text-align:center;">
+    <div class="auth-brand">
+      <h1>KYS MARINE</h1>
+    </div>
+    <div class="pending-icon">⏳</div>
+    <h2 style="font-size:18px; margin-bottom:10px;">Compte en attente</h2>
+    <p style="color:var(--text-dim); font-size:13px; line-height:1.6; margin-bottom:20px;">
+      Ton compte (<strong id="pendingEmail"></strong>) a bien été créé.<br>
+      Un administrateur doit le valider avant que tu puisses accéder à l'application.
+    </p>
+    <button class="btn ghost" onclick="seDeconnecter()" style="width:100%;">Se déconnecter</button>
+  </div>
+</div>
+
 <!-- ================= APPLICATION (masquée tant que non connecté) ================= -->
 <div id="appContent" style="display:none;">
 
@@ -376,6 +421,7 @@
 <nav class="tabs">
   <button class="tab active" id="tabBtnCommandes" onclick="afficherPage('commandes')">Commandes</button>
   <button class="tab" id="tabBtnStock" onclick="afficherPage('stock')">Stock bourriches <span class="badge" id="stockBadge" style="display:none;">0</span></button>
+  <button class="tab" id="tabBtnUsers" onclick="afficherPage('users')" style="display:none;">Utilisateurs <span class="badge" id="usersBadge" style="display:none;">0</span></button>
 </nav>
 
 <div id="configWarning" class="config-warning" style="display:none;">
@@ -425,6 +471,30 @@
   <div class="empty" id="emptyStock" style="display:none;">
     <h3>Aucune taille de bourriche</h3>
     <p>Ajoute une taille (48, 12, 96…) avec son stock initial pour suivre la consommation.</p>
+  </div>
+</div>
+
+<!-- ================= PAGE UTILISATEURS (admins) ================= -->
+<div class="page" id="pageUsers">
+  <div class="toolbar">
+    <span class="count" id="countUsers"></span>
+  </div>
+  <div class="users-wrap">
+    <table id="tableUsers">
+      <thead>
+        <tr>
+          <th>Email</th>
+          <th>Statut</th>
+          <th>Rôle</th>
+          <th>Inscription</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tbodyUsers"></tbody>
+    </table>
+    <div class="empty" id="emptyUsers" style="display:none;">
+      <h3>Aucun utilisateur</h3>
+    </div>
   </div>
 </div>
 
@@ -546,6 +616,13 @@
   let editStockId = null;
   let ecouteActive = false;
 
+  // Emails admins garantis (toujours admin + validés automatiquement)
+  const ADMINS_EN_DUR = ["n.ocipski@gmail.com"];
+
+  let utilisateurs = {};       // { uid: {email, statut, role, ...} }
+  let utilisateurCourant = null; // fiche du user connecté
+  let ecouteUtilisateurs = false;
+
   // --- Init Firebase ---
   function initFirebase() {
     if (firebaseConfig.apiKey === "À_REMPLIR") {
@@ -558,21 +635,81 @@
       db = firebase.database();
       auth = firebase.auth();
 
-      // Surveille l'état de connexion : affiche l'app ou l'écran de login
       auth.onAuthStateChanged((user) => {
         if (user) {
-          document.getElementById("authScreen").style.display = "none";
-          document.getElementById("appContent").style.display = "block";
-          if (!ecouteActive) { ecouter(); ecouteActive = true; }
+          gererConnexion(user);
         } else {
+          utilisateurCourant = null;
           document.getElementById("authScreen").style.display = "flex";
           document.getElementById("appContent").style.display = "none";
+          document.getElementById("pendingScreen").style.display = "none";
         }
       });
     } catch (e) {
       setStatus(false, "Erreur Firebase");
       console.error(e);
     }
+  }
+
+  // --- Gère l'arrivée d'un utilisateur connecté : crée/lit sa fiche, vérifie son statut ---
+  function gererConnexion(user) {
+    const refUser = db.ref("utilisateurs/" + user.uid);
+    const estAdminDur = ADMINS_EN_DUR.map(e => e.toLowerCase()).includes((user.email || "").toLowerCase());
+
+    refUser.once("value").then((snap) => {
+      let fiche = snap.val();
+      if (!fiche) {
+        // Première connexion : on crée la fiche
+        fiche = {
+          email: user.email,
+          statut: estAdminDur ? "valide" : "en_attente",
+          role: estAdminDur ? "admin" : "employe",
+          dateInscription: Date.now()
+        };
+        refUser.set(fiche);
+      } else if (estAdminDur && (fiche.role !== "admin" || fiche.statut !== "valide")) {
+        // Force le statut admin pour les emails en dur (au cas où)
+        fiche.role = "admin";
+        fiche.statut = "valide";
+        refUser.update({ role: "admin", statut: "valide" });
+      }
+      utilisateurCourant = { uid: user.uid, ...fiche };
+      appliquerAcces();
+    }).catch((err) => {
+      console.error("Erreur lecture fiche utilisateur :", err);
+      // En cas d'erreur (ex. règles), on bloque par sécurité
+      document.getElementById("authScreen").style.display = "flex";
+      document.getElementById("appContent").style.display = "none";
+      afficherErreurAuth("Erreur d'accès. Réessaie ou contacte un administrateur.");
+    });
+  }
+
+  // --- Affiche l'app, l'écran d'attente, selon le statut ---
+  function appliquerAcces() {
+    const u = utilisateurCourant;
+    document.getElementById("authScreen").style.display = "none";
+
+    if (u && u.statut === "valide") {
+      // Accès accordé
+      document.getElementById("pendingScreen").style.display = "none";
+      document.getElementById("appContent").style.display = "block";
+      // Onglet Utilisateurs visible seulement pour les admins
+      document.getElementById("tabBtnUsers").style.display = (u.role === "admin") ? "inline-block" : "none";
+      if (!ecouteActive) { ecouter(); ecouteActive = true; }
+      if (u.role === "admin" && !ecouteUtilisateurs) { ecouterUtilisateurs(); ecouteUtilisateurs = true; }
+    } else {
+      // En attente de validation
+      document.getElementById("appContent").style.display = "none";
+      document.getElementById("pendingScreen").style.display = "flex";
+      document.getElementById("pendingEmail").textContent = u ? u.email : "";
+    }
+  }
+
+  function ecouterUtilisateurs() {
+    db.ref("utilisateurs").on("value", (snap) => {
+      utilisateurs = snap.val() || {};
+      rendreUtilisateurs();
+    });
   }
 
   // ======================================================
@@ -651,12 +788,98 @@
     document.getElementById("statusText").textContent = txt;
   }
 
+  // ======================================================
+  //  GESTION DES UTILISATEURS (admins)
+  // ======================================================
+  function rendreUtilisateurs() {
+    const tbody = document.getElementById("tbodyUsers");
+    tbody.innerHTML = "";
+
+    const liste = Object.entries(utilisateurs)
+      .map(([uid, u]) => ({ uid, ...u }))
+      .sort((a, b) => {
+        // En attente d'abord, puis par date
+        if (a.statut !== b.statut) return a.statut === "en_attente" ? -1 : 1;
+        return (a.dateInscription || 0) - (b.dateInscription || 0);
+      });
+
+    const nbAttente = liste.filter(u => u.statut === "en_attente").length;
+    document.getElementById("emptyUsers").style.display = liste.length ? "none" : "block";
+    document.getElementById("countUsers").textContent =
+      liste.length + " compte" + (liste.length > 1 ? "s" : "") +
+      (nbAttente ? ` · ${nbAttente} en attente` : "");
+
+    // Badge sur l'onglet
+    const badge = document.getElementById("usersBadge");
+    if (nbAttente > 0) { badge.style.display = "inline-block"; badge.textContent = nbAttente; }
+    else badge.style.display = "none";
+
+    const monUid = utilisateurCourant ? utilisateurCourant.uid : null;
+
+    for (const u of liste) {
+      const estMoi = u.uid === monUid;
+      const date = u.dateInscription ? new Date(u.dateInscription).toLocaleDateString("fr-FR") : "—";
+
+      const badgeStatut = u.statut === "valide"
+        ? '<span class="badge-statut valide">Validé</span>'
+        : '<span class="badge-statut attente">En attente</span>';
+      const badgeRole = u.role === "admin"
+        ? '<span class="badge-role admin">Admin</span>'
+        : '<span class="badge-role employe">Employé</span>';
+
+      // Actions (désactivées sur soi-même pour éviter de se bloquer)
+      let actions = "";
+      if (estMoi) {
+        actions = '<span class="user-moi">vous</span>';
+      } else {
+        if (u.statut === "en_attente") {
+          actions += `<button class="btn-mini valider" onclick="validerUser('${u.uid}')">Valider</button>`;
+        }
+        if (u.role === "admin") {
+          actions += `<button class="btn-mini" onclick="changerRole('${u.uid}','employe')">Retirer admin</button>`;
+        } else {
+          actions += `<button class="btn-mini" onclick="changerRole('${u.uid}','admin')">Passer admin</button>`;
+        }
+        actions += `<button class="btn-mini suppr" onclick="supprimerUser('${u.uid}','${esc(u.email)}')">Supprimer</button>`;
+      }
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${esc(u.email)}</td>
+        <td>${badgeStatut}</td>
+        <td>${badgeRole}</td>
+        <td style="color:var(--text-dim);font-size:12px;">${date}</td>
+        <td class="user-actions">${actions}</td>`;
+      tbody.appendChild(tr);
+    }
+  }
+
+  function validerUser(uid) {
+    db.ref("utilisateurs/" + uid + "/statut").set("valide");
+  }
+
+  function changerRole(uid, role) {
+    const u = utilisateurs[uid];
+    const verbe = role === "admin" ? "passer ADMIN" : "retirer les droits admin de";
+    if (confirm(`Voulez-vous ${verbe} ${u ? u.email : "ce compte"} ?`)) {
+      db.ref("utilisateurs/" + uid + "/role").set(role);
+    }
+  }
+
+  function supprimerUser(uid, email) {
+    if (confirm(`Supprimer le compte "${email}" ?\n\nNote : cela retire son accès à l'application. La connexion Firebase elle-même devra être supprimée séparément dans la console si besoin.`)) {
+      db.ref("utilisateurs/" + uid).remove();
+    }
+  }
+
   // --- Navigation onglets ---
   function afficherPage(p) {
     document.getElementById("pageCommandes").classList.toggle("active", p === "commandes");
     document.getElementById("pageStock").classList.toggle("active", p === "stock");
+    document.getElementById("pageUsers").classList.toggle("active", p === "users");
     document.getElementById("tabBtnCommandes").classList.toggle("active", p === "commandes");
     document.getElementById("tabBtnStock").classList.toggle("active", p === "stock");
+    document.getElementById("tabBtnUsers").classList.toggle("active", p === "users");
   }
 
   // ======================================================
