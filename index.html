@@ -29,6 +29,39 @@
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
+  /* ---- Écran de connexion ---- */
+  .auth-screen {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px; z-index: 200;
+    background: radial-gradient(circle at 50% 30%, #16222e 0%, var(--bg) 70%);
+  }
+  .auth-box {
+    width: 100%; max-width: 380px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 32px;
+  }
+  .auth-brand { text-align: center; margin-bottom: 26px; }
+  .auth-brand h1 { font-size: 24px; font-weight: 700; letter-spacing: 1px; }
+  .auth-brand span { font-size: 13px; color: var(--text-dim); }
+  .auth-tabs { display: flex; gap: 4px; margin-bottom: 22px; background: var(--bg); border-radius: 9px; padding: 4px; }
+  .auth-tab {
+    flex: 1; background: none; border: none; color: var(--text-dim);
+    padding: 9px; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 7px; transition: all 0.2s;
+  }
+  .auth-tab.active { background: var(--surface-2); color: var(--text); }
+  .auth-error {
+    background: #3a1d1a; border: 1px solid #6b3a2a; color: #e08a7a;
+    padding: 10px 12px; border-radius: 8px; font-size: 12px; margin-bottom: 14px;
+  }
+  .auth-submit { width: 100%; padding: 11px; font-size: 14px; margin-top: 4px; }
+  .auth-hint { font-size: 12px; color: var(--text-dim); text-align: center; margin-top: 16px; }
+  .btn-logout {
+    background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+    padding: 6px 12px; border-radius: 7px; font-size: 12px; font-weight: 600; cursor: pointer; margin-left: 8px;
+  }
+  .btn-logout:hover { background: var(--surface-2); color: var(--text); }
+
   body {
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     background: var(--bg);
@@ -300,6 +333,34 @@
 </head>
 <body>
 
+<!-- ================= ÉCRAN DE CONNEXION ================= -->
+<div id="authScreen" class="auth-screen">
+  <div class="auth-box">
+    <div class="auth-brand">
+      <h1>KYS MARINE</h1>
+      <span>Commandes &amp; stock</span>
+    </div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="authTabLogin" onclick="basculerAuth('login')">Connexion</button>
+      <button class="auth-tab" id="authTabSignup" onclick="basculerAuth('signup')">Créer un compte</button>
+    </div>
+    <div class="field">
+      <label>Email</label>
+      <input id="auth_email" type="email" placeholder="nom@kysmarine.fr" autocomplete="email">
+    </div>
+    <div class="field">
+      <label>Mot de passe</label>
+      <input id="auth_password" type="password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <div id="authError" class="auth-error" style="display:none;"></div>
+    <button class="btn auth-submit" id="authSubmit" onclick="soumettreAuth()">Se connecter</button>
+    <p class="auth-hint" id="authHint">Pas encore de compte ? Clique sur « Créer un compte ».</p>
+  </div>
+</div>
+
+<!-- ================= APPLICATION (masquée tant que non connecté) ================= -->
+<div id="appContent" style="display:none;">
+
 <header>
   <div class="brand">
     <h1>KYS MARINE</h1>
@@ -308,6 +369,7 @@
   <div class="status">
     <span class="dot" id="statusDot"></span>
     <span id="statusText">Connexion…</span>
+    <button class="btn-logout" id="btnLogout" onclick="seDeconnecter()" title="Se déconnecter">Déconnexion</button>
   </div>
 </header>
 
@@ -456,8 +518,11 @@
   </div>
 </div>
 
+</div><!-- /appContent -->
+
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 
 <script>
   // ======================================================
@@ -475,9 +540,11 @@
 
   const CATEGORIES = ["etoiles","baby","kys","fines","easy","coffrets","cadeaux"];
   let db = null;
+  let auth = null;
   let commandes = {};   // { id: {camion, client, etoiles, ...} }
   let stock = {};       // { tailleId: {taille, initial, seuil} }
   let editStockId = null;
+  let ecouteActive = false;
 
   // --- Init Firebase ---
   function initFirebase() {
@@ -489,12 +556,81 @@
     try {
       firebase.initializeApp(firebaseConfig);
       db = firebase.database();
-      ecouter();
+      auth = firebase.auth();
+
+      // Surveille l'état de connexion : affiche l'app ou l'écran de login
+      auth.onAuthStateChanged((user) => {
+        if (user) {
+          document.getElementById("authScreen").style.display = "none";
+          document.getElementById("appContent").style.display = "block";
+          if (!ecouteActive) { ecouter(); ecouteActive = true; }
+        } else {
+          document.getElementById("authScreen").style.display = "flex";
+          document.getElementById("appContent").style.display = "none";
+        }
+      });
     } catch (e) {
       setStatus(false, "Erreur Firebase");
       console.error(e);
     }
   }
+
+  // ======================================================
+  //  AUTHENTIFICATION
+  // ======================================================
+  let modeAuth = "login"; // "login" ou "signup"
+
+  function basculerAuth(mode) {
+    modeAuth = mode;
+    document.getElementById("authTabLogin").classList.toggle("active", mode === "login");
+    document.getElementById("authTabSignup").classList.toggle("active", mode === "signup");
+    document.getElementById("authSubmit").textContent = mode === "login" ? "Se connecter" : "Créer le compte";
+    document.getElementById("authHint").textContent = mode === "login"
+      ? "Pas encore de compte ? Clique sur « Créer un compte »."
+      : "Déjà un compte ? Clique sur « Connexion ».";
+    document.getElementById("authError").style.display = "none";
+  }
+
+  function afficherErreurAuth(msg) {
+    const el = document.getElementById("authError");
+    el.textContent = msg;
+    el.style.display = "block";
+  }
+
+  function soumettreAuth() {
+    const email = document.getElementById("auth_email").value.trim();
+    const pass = document.getElementById("auth_password").value;
+    if (!email || !pass) { afficherErreurAuth("Email et mot de passe obligatoires."); return; }
+
+    const action = modeAuth === "login"
+      ? auth.signInWithEmailAndPassword(email, pass)
+      : auth.createUserWithEmailAndPassword(email, pass);
+
+    action.catch((err) => {
+      // Messages d'erreur en français
+      const messages = {
+        "auth/invalid-email": "Adresse email invalide.",
+        "auth/user-not-found": "Aucun compte avec cet email.",
+        "auth/wrong-password": "Mot de passe incorrect.",
+        "auth/invalid-credential": "Email ou mot de passe incorrect.",
+        "auth/email-already-in-use": "Un compte existe déjà avec cet email.",
+        "auth/weak-password": "Mot de passe trop court (6 caractères minimum).",
+        "auth/too-many-requests": "Trop de tentatives. Réessaie plus tard."
+      };
+      afficherErreurAuth(messages[err.code] || ("Erreur : " + err.message));
+    });
+  }
+
+  function seDeconnecter() {
+    if (auth) auth.signOut();
+  }
+
+  // Entrée = soumettre le formulaire de connexion
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && document.getElementById("authScreen").style.display !== "none") {
+      soumettreAuth();
+    }
+  });
 
   function ecouter() {
     db.ref("commandes").on("value", (snap) => {
