@@ -99,6 +99,58 @@
   .reassort-titre { font-size: 14px; font-weight: 600; margin-bottom: 8px; color: var(--accent); }
   .reassort-info { font-size: 12px; color: var(--text-dim); line-height: 1.5; margin-bottom: 12px; }
 
+  /* ---- Barre de navigation par journée ---- */
+  .journee-bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 14px 20px 0; flex-wrap: wrap;
+  }
+  .nav-jour {
+    background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    width: 36px; height: 36px; border-radius: 8px; font-size: 18px; cursor: pointer; line-height: 1;
+  }
+  .nav-jour:hover { background: var(--surface-2); }
+  .journee-actuelle {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    padding: 8px 16px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; min-width: 160px; justify-content: center;
+  }
+  .journee-actuelle:hover { background: var(--surface-2); border-color: var(--accent); }
+  .journee-cal-icon { font-size: 14px; }
+  .btn-aujourdhui {
+    background: transparent; border: 1px solid var(--accent); color: var(--accent);
+    padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .btn-aujourdhui:hover { background: var(--accent-soft); color: #fff; }
+
+  /* ---- Popover calendrier ---- */
+  .cal-popover {
+    position: absolute; z-index: 60; margin: 6px 20px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px; box-shadow: 0 8px 30px rgba(0,0,0,0.5); width: 280px;
+  }
+  .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .cal-header span { font-size: 14px; font-weight: 600; text-transform: capitalize; }
+  .cal-header button {
+    background: var(--surface-2); border: none; color: var(--text); width: 28px; height: 28px;
+    border-radius: 6px; cursor: pointer; font-size: 15px;
+  }
+  .cal-header button:hover { background: var(--border); }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+  .cal-jour-entete { text-align: center; font-size: 10px; color: var(--text-dim); padding: 4px 0; text-transform: uppercase; }
+  .cal-jour {
+    aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+    font-size: 13px; border-radius: 6px; cursor: pointer; color: var(--text); position: relative;
+  }
+  .cal-jour:hover { background: var(--surface-2); }
+  .cal-jour.vide { cursor: default; }
+  .cal-jour.aujourdhui { outline: 1px solid var(--accent); }
+  .cal-jour.actif { background: var(--accent); color: #fff; font-weight: 700; }
+  .cal-jour.a-commandes::after {
+    content: ''; position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%);
+    width: 4px; height: 4px; border-radius: 50%; background: var(--ok);
+  }
+  .cal-jour.actif.a-commandes::after { background: #fff; }
+
   body {
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     background: var(--bg);
@@ -438,10 +490,29 @@
 
 <!-- ================= PAGE COMMANDES ================= -->
 <div class="page active" id="pageCommandes">
+  <div class="journee-bar">
+    <button class="nav-jour" onclick="journeePrecedente()" title="Journée précédente">‹</button>
+    <button class="journee-actuelle" id="journeeActuelle" onclick="ouvrirCalendrier()">
+      <span id="journeeLabel">—</span>
+      <span class="journee-cal-icon">📅</span>
+    </button>
+    <button class="nav-jour" onclick="journeeSuivante()" title="Journée suivante">›</button>
+    <button class="btn-aujourdhui" onclick="allerAujourdhui()">Aujourd'hui</button>
+  </div>
   <div class="toolbar">
     <button class="btn" onclick="ouvrirModaleCommande()">+ Nouvelle commande</button>
     <input class="search" id="search" placeholder="Rechercher un client…" oninput="rendreCommandes()">
     <span class="count" id="count"></span>
+  </div>
+
+  <!-- Popover calendrier -->
+  <div class="cal-popover" id="calPopover" style="display:none;">
+    <div class="cal-header">
+      <button onclick="changerMois(-1)">‹</button>
+      <span id="calMois"></span>
+      <button onclick="changerMois(1)">›</button>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
   </div>
 
   <div class="table-wrap">
@@ -463,8 +534,8 @@
       <tbody id="tbody"></tbody>
     </table>
     <div class="empty" id="emptyCommandes" style="display:none;">
-      <h3>Aucune commande</h3>
-      <p>Les commandes Telegram et les saisies manuelles apparaîtront ici.</p>
+      <h3 id="emptyTitre">Aucune commande</h3>
+      <p id="emptyTexte">Les commandes Telegram et les saisies manuelles apparaîtront ici.</p>
     </div>
   </div>
 </div>
@@ -594,12 +665,12 @@
     <div id="reassortBloc" class="reassort-bloc" style="display:none;">
       <div class="reassort-titre">📦 Réassort</div>
       <p class="reassort-info">
-        Nouvelle réception de bourriches ? Indique le <strong>nouveau stock total</strong> ci-dessous : il remplacera le stock initial actuel (<span id="reassortActuel">0</span>).
+        Nouvelle réception de bourriches ? Indique le <strong>nombre de bourriches reçues</strong> ci-dessous : elles s'ajouteront au stock actuel (<span id="reassortActuel">0</span>).
       </p>
       <div class="grid2">
         <div class="field" style="margin-bottom:0;">
-          <label>Nouveau stock total</label>
-          <input id="s_reassort" type="number" placeholder="ex. 600" inputmode="numeric">
+          <label>Bourriches reçues</label>
+          <input id="s_reassort" type="number" placeholder="ex. 200" inputmode="numeric">
         </div>
         <div style="display:flex; align-items:flex-end;">
           <button class="btn" style="width:100%;" onclick="appliquerReassort()">Appliquer le réassort</button>
@@ -635,12 +706,70 @@
   };
 
   const CATEGORIES = ["etoiles","baby","kys","fines","easy","coffrets","cadeaux"];
+  const JOURS_SEMAINE = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"];
   let db = null;
   let auth = null;
-  let commandes = {};   // { id: {camion, client, etoiles, ...} }
+  let commandes = {};   // { id: {camion, client, etoiles, ..., journee} }
   let stock = {};       // { tailleId: {taille, initial, seuil} }
   let editStockId = null;
   let ecouteActive = false;
+  let journeeAffichee = null;   // libellé de la journée actuellement affichée (ex. "Mercredi 24")
+  let moisCalendrier = null;    // mois affiché dans le calendrier (objet Date)
+
+  // --- Détecte si une ligne commence par un jour de semaine -> {jourSemaine, numero} ou null ---
+  function detecterDateLigne(ligne) {
+    const norm = normaliser(ligne);
+    const m = norm.match(/^(dimanche|lundi|mardi|mercredi|jeudi|vendredi|samedi)\s*(\d{1,2})?/);
+    if (!m) return null;
+    return {
+      jourSemaine: JOURS_SEMAINE.indexOf(m[1]),
+      numero: m[2] ? parseInt(m[2], 10) : null
+    };
+  }
+
+  // --- Calcule la vraie date la plus proche pour (jourSemaine, numero) ---
+  function calculerVraieDate(jourSemaine, numero, refDate) {
+    const base = refDate ? new Date(refDate) : new Date();
+    base.setHours(12,0,0,0);
+    if (numero != null) {
+      let meilleure = null, meilleurEcart = Infinity;
+      for (let delta = -10; delta <= 80; delta++) {
+        const d = new Date(base); d.setDate(d.getDate() + delta);
+        if (d.getDate() === numero && d.getDay() === jourSemaine) {
+          if (Math.abs(delta) < meilleurEcart) { meilleurEcart = Math.abs(delta); meilleure = new Date(d); }
+        }
+      }
+      if (!meilleure) {
+        for (let delta = -10; delta <= 80; delta++) {
+          const d = new Date(base); d.setDate(d.getDate() + delta);
+          if (d.getDate() === numero) { meilleure = new Date(d); break; }
+        }
+      }
+      return meilleure;
+    }
+    for (let delta = 0; delta <= 7; delta++) {
+      const d = new Date(base); d.setDate(d.getDate() + delta);
+      if (d.getDay() === jourSemaine) return d;
+    }
+    return null;
+  }
+
+  // --- Clé date (AAAA-MM-JJ) à partir d'un objet Date ---
+  function cleDate(d) {
+    if (!d) return null;
+    return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+  }
+
+  // --- Retourne la clé date d'une commande (calculée depuis son libellé de journée) ---
+  function dateDeCommande(c) {
+    if (!c.journee) return null;
+    const det = detecterDateLigne(c.journee);
+    if (!det) return null;
+    const ref = c.dateCreation ? new Date(c.dateCreation) : new Date();
+    const d = calculerVraieDate(det.jourSemaine, det.numero, ref);
+    return cleDate(d);
+  }
+
 
   // Emails admins garantis (toujours admin + validés automatiquement)
   const ADMINS_EN_DUR = ["n.ocipski@gmail.com"];
@@ -799,8 +928,13 @@
     db.ref("commandes").on("value", (snap) => {
       commandes = snap.val() || {};
       setStatus(true, "En direct");
+      // À la première réception, choisir la journée à afficher (celle du jour si elle existe)
+      if (journeeAffichee === null) choisirJourneeInitiale();
+      // Si la journée affichée n'existe plus (ex. toutes supprimées), en rechoisir une
+      else if (!listeJournees().some(j => j.libelle === journeeAffichee)) choisirJourneeInitiale();
+      majLabelJournee();
       rendreCommandes();
-      rendreStock();   // le stock dépend des commandes
+      rendreStock();
     }, (err) => { setStatus(false, "Déconnecté"); console.error(err); });
 
     db.ref("stock").on("value", (snap) => {
@@ -916,10 +1050,12 @@
     const conso = {}; // { taille(number): quantité totale commandée }
     for (const id in commandes) {
       const c = commandes[id];
+      // Stock basé uniquement sur la journée affichée
+      if (journeeAffichee && c.journee !== journeeAffichee) continue;
+      if (!journeeAffichee && c.journee) continue; // si pas de journée sélectionnée, on ne compte rien de rattaché
       for (const cat of CATEGORIES) {
         const cellule = c[cat];
         if (!cellule) continue;
-        // Cherche tous les motifs "quantité x taille" (ex: 4x48, 2 x 12, 59x9)
         const motifs = String(cellule).matchAll(/(\d+)\s*x\s*(\d+)/g);
         for (const m of motifs) {
           const quantite = parseInt(m[1], 10);
@@ -1006,6 +1142,117 @@
     return parseFloat(m[1].replace(",", "."));
   }
 
+  // ======================================================
+  //  GESTION DES JOURNÉES
+  // ======================================================
+  // Retourne la liste des journées { libelle, cleDate } triées par date
+  function listeJournees() {
+    const map = {}; // libelle -> cleDate
+    for (const id in commandes) {
+      const c = commandes[id];
+      if (c.journee && !map[c.journee]) {
+        map[c.journee] = dateDeCommande(c);
+      }
+    }
+    return Object.entries(map)
+      .map(([libelle, cle]) => ({ libelle, cle }))
+      .sort((a, b) => (a.cle || "").localeCompare(b.cle || ""));
+  }
+
+  // Sélectionne la journée à afficher au démarrage : celle d'aujourd'hui, sinon la plus récente
+  function choisirJourneeInitiale() {
+    const journees = listeJournees();
+    if (journees.length === 0) { journeeAffichee = null; return; }
+    const aujCle = cleDate(new Date());
+    const auj = journees.find(j => j.cle === aujCle);
+    journeeAffichee = auj ? auj.libelle : journees[journees.length - 1].libelle;
+  }
+
+  function majLabelJournee() {
+    document.getElementById("journeeLabel").textContent = journeeAffichee || "Aucune journée";
+  }
+
+  function changerJournee(libelle) {
+    journeeAffichee = libelle;
+    majLabelJournee();
+    rendreCommandes();
+    rendreStock();
+    fermerCalendrier();
+  }
+
+  function journeePrecedente() {
+    const journees = listeJournees();
+    const idx = journees.findIndex(j => j.libelle === journeeAffichee);
+    if (idx > 0) changerJournee(journees[idx - 1].libelle);
+  }
+  function journeeSuivante() {
+    const journees = listeJournees();
+    const idx = journees.findIndex(j => j.libelle === journeeAffichee);
+    if (idx >= 0 && idx < journees.length - 1) changerJournee(journees[idx + 1].libelle);
+  }
+  function allerAujourdhui() {
+    const aujCle = cleDate(new Date());
+    const j = listeJournees().find(x => x.cle === aujCle);
+    if (j) { changerJournee(j.libelle); }
+    else { alert("Aucune commande pour aujourd'hui."); }
+  }
+
+  // ---- Calendrier ----
+  function ouvrirCalendrier() {
+    const pop = document.getElementById("calPopover");
+    if (pop.style.display === "block") { fermerCalendrier(); return; }
+    // Positionne le mois sur la journée affichée, sinon mois courant
+    const journees = listeJournees();
+    const courante = journees.find(j => j.libelle === journeeAffichee);
+    moisCalendrier = courante && courante.cle ? new Date(courante.cle + "T12:00:00") : new Date();
+    pop.style.display = "block";
+    rendreCalendrier();
+  }
+  function fermerCalendrier() {
+    document.getElementById("calPopover").style.display = "none";
+  }
+  function changerMois(delta) {
+    moisCalendrier.setMonth(moisCalendrier.getMonth() + delta);
+    rendreCalendrier();
+  }
+
+  function rendreCalendrier() {
+    const grid = document.getElementById("calGrid");
+    const annee = moisCalendrier.getFullYear();
+    const mois = moisCalendrier.getMonth();
+    document.getElementById("calMois").textContent =
+      moisCalendrier.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+
+    // Map cleDate -> libellé (pour savoir quels jours ont des commandes)
+    const journees = listeJournees();
+    const parCle = {};
+    journees.forEach(j => { if (j.cle) parCle[j.cle] = j.libelle; });
+    const aujCle = cleDate(new Date());
+
+    let html = "";
+    const entetes = ["L","M","M","J","V","S","D"];
+    entetes.forEach(e => html += `<div class="cal-jour-entete">${e}</div>`);
+
+    // Premier jour du mois (lundi=0)
+    const premier = new Date(annee, mois, 1);
+    let decalage = (premier.getDay() + 6) % 7; // transforme dimanche=0 en lundi=0
+    for (let i = 0; i < decalage; i++) html += `<div class="cal-jour vide"></div>`;
+
+    const nbJours = new Date(annee, mois + 1, 0).getDate();
+    for (let jour = 1; jour <= nbJours; jour++) {
+      const d = new Date(annee, mois, jour);
+      const cle = cleDate(d);
+      const aCommandes = !!parCle[cle];
+      const classes = ["cal-jour"];
+      if (cle === aujCle) classes.push("aujourdhui");
+      if (aCommandes && parCle[cle] === journeeAffichee) classes.push("actif");
+      if (aCommandes) classes.push("a-commandes");
+      const onclick = aCommandes ? `onclick="changerJournee('${parCle[cle].replace(/'/g,"\\'")}')"` : "";
+      html += `<div class="${classes.join(" ")}" ${onclick}>${jour}</div>`;
+    }
+    grid.innerHTML = html;
+  }
+
   function rendreCommandes() {
     const tbody = document.getElementById("tbody");
     const filtre = document.getElementById("search").value.toLowerCase().trim();
@@ -1013,18 +1260,29 @@
 
     let liste = Object.entries(commandes)
       .map(([id, c]) => ({ id, ...c }))
+      // Ne garder que les commandes de la journée affichée
+      .filter(c => (c.journee || null) === journeeAffichee)
       .sort((a, b) => {
-        // Tri principal : par numéro de camion (1, 2, 3, 3.5, 4, 5), sans numéro en dernier
         const na = numeroCamion(a.camion);
         const nb = numeroCamion(b.camion);
         if (na !== nb) return na - nb;
-        // À camion égal : ordre par date de création (garde les rajouts sous leur client)
         return (a.dateCreation || 0) - (b.dateCreation || 0);
       });
 
     if (filtre) liste = liste.filter(c => (c.client || "").toLowerCase().includes(filtre));
 
     document.getElementById("emptyCommandes").style.display = liste.length ? "none" : "block";
+    if (!liste.length) {
+      const aujCle = cleDate(new Date());
+      const estAuj = journeeAffichee && listeJournees().some(j => j.libelle === journeeAffichee && j.cle === aujCle);
+      if (!journeeAffichee || (journeeAffichee && estAuj && Object.keys(commandes).length === 0)) {
+        document.getElementById("emptyTitre").textContent = "Aucune commande aujourd'hui";
+        document.getElementById("emptyTexte").textContent = "Les commandes Telegram et les saisies manuelles apparaîtront ici.";
+      } else {
+        document.getElementById("emptyTitre").textContent = "Aucune commande";
+        document.getElementById("emptyTexte").textContent = "Cette journée (" + (journeeAffichee || "—") + ") ne contient aucune commande.";
+      }
+    }
     document.getElementById("count").textContent =
       liste.length + (liste.length > 1 ? " commandes" : " commande");
 
@@ -1174,23 +1432,31 @@
     const estRajout = document.getElementById("opt_rajout").checked;
     const estBelle = document.getElementById("opt_belle").checked;
 
-    // Mode RAJOUT : le client doit exister exactement dans le tableau
+    // Journée cible = journée affichée. Si aucune, on en crée une "du jour".
+    let journeeCible = journeeAffichee;
+    if (!journeeCible) {
+      const auj = new Date();
+      const jour = JOURS_SEMAINE[auj.getDay()];
+      journeeCible = jour.charAt(0).toUpperCase() + jour.slice(1) + " " + auj.getDate();
+    }
+
+    // Mode RAJOUT : le client doit exister dans la journée affichée
     let dateCreation = Date.now();
     if (estRajout) {
       const cible = Object.values(commandes).find(
-        c => (c.client || "").trim() === client
+        c => (c.client || "").trim() === client && (c.journee || null) === journeeCible
       );
       if (!cible) {
-        alert(`Aucune commande au nom de "${client}" dans le tableau.\nLe rajout n'est possible que pour un client déjà présent.`);
+        alert(`Aucune commande au nom de "${client}" dans cette journée.\nLe rajout n'est possible que pour un client déjà présent ce jour-là.`);
         return;
       }
-      // Positionne le rajout juste APRÈS le client
       dateCreation = (Number(cible.dateCreation) || Date.now()) + 1;
     }
 
     const cmd = {
       camion: document.getElementById("f_camion").value.trim(),
       client: client,
+      journee: journeeCible,
       source: "manuel",
       dateCreation: dateCreation
     };
@@ -1201,6 +1467,8 @@
     ["easy","coffrets","cadeaux"].forEach(cat => cmd[cat] = document.getElementById("f_"+cat).value.trim());
 
     db.ref("commandes").push(cmd);
+    // Si on a créé une nouvelle journée, basculer dessus
+    if (!journeeAffichee) { journeeAffichee = journeeCible; majLabelJournee(); }
     fermerModale("overlayCommande");
   }
 
@@ -1231,12 +1499,14 @@
     if (!id) document.getElementById("s_taille").focus();
   }
 
-  // Réassort : remplace le stock initial par la nouvelle valeur saisie
+  // Réassort : ajoute les bourriches reçues au stock initial existant
   function appliquerReassort() {
     if (!editStockId) return;
-    const nouveau = parseInt(document.getElementById("s_reassort").value, 10);
-    if (isNaN(nouveau) || nouveau < 0) { alert("Entre un nombre valide pour le nouveau stock total."); return; }
-    if (confirm(`Remplacer le stock initial par ${nouveau} bourriches ?`)) {
+    const ajout = parseInt(document.getElementById("s_reassort").value, 10);
+    if (isNaN(ajout) || ajout < 0) { alert("Entre un nombre valide de bourriches reçues."); return; }
+    const actuel = Number(stock[editStockId].initial) || 0;
+    const nouveau = actuel + ajout;
+    if (confirm(`Ajouter ${ajout} bourriches au stock ? (${actuel} → ${nouveau})`)) {
       db.ref("stock/" + editStockId + "/initial").set(nouveau);
       fermerModale("overlayStock");
     }
@@ -1278,7 +1548,19 @@
     ov.addEventListener("click", (e) => { if (e.target === ov) ov.classList.remove("open"); });
   });
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") document.querySelectorAll(".overlay.open").forEach(ov => ov.classList.remove("open"));
+    if (e.key === "Escape") {
+      document.querySelectorAll(".overlay.open").forEach(ov => ov.classList.remove("open"));
+      fermerCalendrier();
+    }
+  });
+
+  // Ferme le calendrier si on clique en dehors
+  document.addEventListener("click", (e) => {
+    const pop = document.getElementById("calPopover");
+    const btn = document.getElementById("journeeActuelle");
+    if (pop && pop.style.display === "block" && !pop.contains(e.target) && btn && !btn.contains(e.target)) {
+      fermerCalendrier();
+    }
   });
 
   initFirebase();
