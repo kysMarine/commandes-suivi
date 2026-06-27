@@ -151,6 +151,36 @@
   }
   .cal-jour.actif.a-commandes::after { background: #fff; }
 
+  /* ---- Page Totaux ventes ---- */
+  .totaux-wrap {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 14px; padding: 14px 20px 40px;
+  }
+  .totaux-cat {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+  }
+  .totaux-cat-titre {
+    padding: 12px 16px; font-size: 14px; font-weight: 700; color: #fff;
+    display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border);
+  }
+  .totaux-cat-titre .pastille { width: 12px; height: 12px; border-radius: 3px; }
+  .totaux-ligne {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+  }
+  .totaux-ligne:last-child { border-bottom: none; }
+  .totaux-ref { font-size: 13px; color: var(--text-dim); font-weight: 600; }
+  .totaux-valeur { font-size: 20px; font-weight: 700; color: var(--text); }
+  .totaux-valeur .unite { font-size: 12px; color: var(--text-dim); font-weight: 500; margin-left: 2px; }
+  /* Bandeau résumé (nombre de clients) */
+  .totaux-resume { padding: 0 20px; margin-top: 8px; display: flex; gap: 12px; flex-wrap: wrap; }
+  .resume-carte {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 18px; display: flex; align-items: center; gap: 12px;
+  }
+  .resume-carte .resume-valeur { font-size: 26px; font-weight: 700; color: var(--accent); line-height: 1; }
+  .resume-carte .resume-label { font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.4px; }
+
   body {
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     background: var(--bg);
@@ -480,6 +510,7 @@
 
 <nav class="tabs">
   <button class="tab active" id="tabBtnCommandes" onclick="afficherPage('commandes')">Commandes</button>
+  <button class="tab" id="tabBtnTotaux" onclick="afficherPage('totaux')">Totaux ventes</button>
   <button class="tab" id="tabBtnStock" onclick="afficherPage('stock')">Stock bourriches <span class="badge" id="stockBadge" style="display:none;">0</span></button>
   <button class="tab" id="tabBtnUsers" onclick="afficherPage('users')" style="display:none;">Utilisateurs <span class="badge" id="usersBadge" style="display:none;">0</span></button>
 </nav>
@@ -537,6 +568,25 @@
       <h3 id="emptyTitre">Aucune commande</h3>
       <p id="emptyTexte">Les commandes Telegram et les saisies manuelles apparaîtront ici.</p>
     </div>
+  </div>
+</div>
+
+<!-- ================= PAGE TOTAUX VENTES ================= -->
+<div class="page" id="pageTotaux">
+  <div class="journee-bar">
+    <button class="nav-jour" onclick="journeePrecedente()" title="Journée précédente">‹</button>
+    <button class="journee-actuelle" onclick="ouvrirCalendrier()">
+      <span id="journeeLabelTotaux">—</span>
+      <span class="journee-cal-icon">📅</span>
+    </button>
+    <button class="nav-jour" onclick="journeeSuivante()" title="Journée suivante">›</button>
+    <button class="btn-aujourdhui" onclick="allerAujourdhui()">Aujourd'hui</button>
+  </div>
+  <div class="totaux-resume" id="totauxResume"></div>
+  <div class="totaux-wrap" id="totauxWrap"></div>
+  <div class="empty" id="emptyTotaux" style="display:none;">
+    <h3>Aucune vente</h3>
+    <p>Cette journée ne contient aucune commande à totaliser.</p>
   </div>
 </div>
 
@@ -938,6 +988,7 @@
       majLabelJournee();
       rendreCommandes();
       rendreStock();
+      rendreTotaux();
     }, (err) => { setStatus(false, "Déconnecté"); console.error(err); });
 
     db.ref("stock").on("value", (snap) => {
@@ -1038,11 +1089,104 @@
   // --- Navigation onglets ---
   function afficherPage(p) {
     document.getElementById("pageCommandes").classList.toggle("active", p === "commandes");
+    document.getElementById("pageTotaux").classList.toggle("active", p === "totaux");
     document.getElementById("pageStock").classList.toggle("active", p === "stock");
     document.getElementById("pageUsers").classList.toggle("active", p === "users");
     document.getElementById("tabBtnCommandes").classList.toggle("active", p === "commandes");
+    document.getElementById("tabBtnTotaux").classList.toggle("active", p === "totaux");
     document.getElementById("tabBtnStock").classList.toggle("active", p === "stock");
     document.getElementById("tabBtnUsers").classList.toggle("active", p === "users");
+    if (p === "totaux") rendreTotaux();
+  }
+
+  // ======================================================
+  //  TOTAUX DE VENTES (par catégorie + référence, journée affichée)
+  // ======================================================
+  const NOMS_CATEGORIES = {
+    etoiles: "Étoiles", baby: "Baby", kys: "Kys", fines: "Fines",
+    easy: "Easy", coffrets: "Coffrets", cadeaux: "Cadeaux"
+  };
+  const COULEURS_CAT = {
+    etoiles: "var(--c-etoiles)", baby: "var(--c-baby)", kys: "var(--c-kys)",
+    fines: "var(--c-fines)", easy: "var(--c-easy)", coffrets: "var(--c-coffrets)", cadeaux: "var(--c-cadeaux)"
+  };
+
+  function rendreTotaux() {
+    document.getElementById("journeeLabelTotaux").textContent = journeeAffichee || "Aucune journée";
+    const wrap = document.getElementById("totauxWrap");
+    wrap.innerHTML = "";
+
+    // Nombre de clients uniques (par nom) sur la journée affichée
+    const clientsUniques = new Set();
+    let nbLignes = 0;
+    for (const id in commandes) {
+      const c = commandes[id];
+      if ((c.journee || null) !== journeeAffichee) continue;
+      if (c.client) { clientsUniques.add(c.client.trim().toLowerCase()); nbLignes++; }
+    }
+    const resume = document.getElementById("totauxResume");
+    if (nbLignes > 0) {
+      resume.innerHTML = `
+        <div class="resume-carte">
+          <span class="resume-valeur">${clientsUniques.size}</span>
+          <span class="resume-label">client${clientsUniques.size > 1 ? "s" : ""}</span>
+        </div>
+        <div class="resume-carte">
+          <span class="resume-valeur">${nbLignes}</span>
+          <span class="resume-label">ligne${nbLignes > 1 ? "s" : ""} de commande</span>
+        </div>`;
+    } else {
+      resume.innerHTML = "";
+    }
+
+    // Agrège : { categorie: { 'code|unite': {ref, unite, total} } }
+    const totaux = {};
+    for (const cat of CATEGORIES) totaux[cat] = {};
+
+    let auMoinsUne = false;
+    for (const id in commandes) {
+      const c = commandes[id];
+      if ((c.journee || null) !== journeeAffichee) continue; // journée affichée uniquement
+      for (const cat of CATEGORIES) {
+        const cellule = c[cat];
+        if (!cellule) continue;
+        // motif : quantité x calibre (+kg éventuel) + code éventuel
+        const motifs = String(cellule).matchAll(/(\d+)\s*x\s*(\d+)\s*(kg)?\s*([A-Za-zÉé]+\d*)?/g);
+        for (const m of motifs) {
+          const qte = parseInt(m[1], 10);
+          const calibre = parseInt(m[2], 10);
+          if (isNaN(qte) || isNaN(calibre)) continue;
+          const estKg = !!m[3];
+          const code = (m[4] || "—").trim();
+          const unite = estKg ? "kg" : "pc";
+          const cle = code + "|" + unite;
+          if (!totaux[cat][cle]) totaux[cat][cle] = { ref: code, unite, total: 0 };
+          totaux[cat][cle].total += qte * calibre;
+          auMoinsUne = true;
+        }
+      }
+    }
+
+    document.getElementById("emptyTotaux").style.display = auMoinsUne ? "none" : "block";
+
+    for (const cat of CATEGORIES) {
+      const refs = Object.values(totaux[cat]);
+      if (refs.length === 0) continue;
+      // Trie par référence
+      refs.sort((a, b) => a.ref.localeCompare(b.ref));
+
+      const carte = document.createElement("div");
+      carte.className = "totaux-cat";
+      let html = `<div class="totaux-cat-titre"><span class="pastille" style="background:${COULEURS_CAT[cat]}"></span>${NOMS_CATEGORIES[cat]}</div>`;
+      for (const r of refs) {
+        const valeur = r.unite === "kg"
+          ? `${r.total}<span class="unite">kg</span>`
+          : `${r.total}<span class="unite">pc</span>`;
+        html += `<div class="totaux-ligne"><span class="totaux-ref">${esc(r.ref)}</span><span class="totaux-valeur">${valeur}</span></div>`;
+      }
+      carte.innerHTML = html;
+      wrap.appendChild(carte);
+    }
   }
 
   // ======================================================
@@ -1173,6 +1317,8 @@
 
   function majLabelJournee() {
     document.getElementById("journeeLabel").textContent = journeeAffichee || "Aucune journée";
+    const lblTot = document.getElementById("journeeLabelTotaux");
+    if (lblTot) lblTot.textContent = journeeAffichee || "Aucune journée";
   }
 
   function changerJournee(libelle) {
@@ -1180,6 +1326,7 @@
     majLabelJournee();
     rendreCommandes();
     rendreStock();
+    rendreTotaux();
     fermerCalendrier();
   }
 
