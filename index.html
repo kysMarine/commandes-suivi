@@ -718,7 +718,10 @@
 
   // --- Détecte si une ligne commence par un jour de semaine -> {jourSemaine, numero} ou null ---
   function detecterDateLigne(ligne) {
-    const norm = normaliser(ligne);
+    // Normalisation locale (ne dépend pas de l'ordre des déclarations)
+    const norm = String(ligne || "").toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ").trim();
     const m = norm.match(/^(dimanche|lundi|mardi|mercredi|jeudi|vendredi|samedi)\s*(\d{1,2})?/);
     if (!m) return null;
     return {
