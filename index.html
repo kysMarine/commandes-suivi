@@ -565,7 +565,7 @@
 
   <!-- Sous-onglets par type de produit -->
   <div class="sous-onglets" id="sousOnglets">
-    <button class="sous-onglet active" data-vue="toutes" onclick="changerVue('toutes')">Toutes</button>
+    <button class="sous-onglet active" data-vue="toutes" onclick="changerVue('toutes')">Commandes</button>
     <button class="sous-onglet" data-vue="etoiles" onclick="changerVue('etoiles')">Étoiles</button>
     <button class="sous-onglet" data-vue="baby" onclick="changerVue('baby')">Baby</button>
     <button class="sous-onglet" data-vue="kys" onclick="changerVue('kys')">Kys</button>
@@ -1456,9 +1456,14 @@
     const estPalettes = vueCommandes === "palettes";
     tbody.innerHTML = "";
 
+    // La case client ne s'affiche que dans Palettes (la vue Commandes montre juste la ligne verte)
+    const avecCaseClient = estPalettes;
+    // Vue produit (sous-onglet de travail) : cases d'atelier indépendantes
+    const estVueProduit = ["etoiles","baby","kys","fec"].includes(vueCommandes);
+
     // --- En-tête dynamique selon la vue ---
     let theadHtml = "<tr>";
-    if (estPalettes) theadHtml += "<th></th>"; // colonne case client
+    if (avecCaseClient) theadHtml += "<th></th>"; // colonne case client
     theadHtml += "<th>Camion</th><th>Client</th>";
     for (const cat of vue.cols) {
       theadHtml += `<th data-cat="${cat}">${LIBELLES_CAT[cat]}</th>`;
@@ -1505,13 +1510,15 @@
       const tagBelle = c.belle ? '<span class="belle-tag">Belle sélection</span>' : '';
       const checks = c.checks || {};
 
+      // Client complet = tous ses produits remplis sont cochés (calculé pour toutes les vues)
+      const prodsRemplis = CATEGORIES.filter(cat => c[cat] && String(c[cat]).trim().length > 0);
+      const tousCoches = prodsRemplis.length > 0 && prodsRemplis.every(cat => checks[cat]);
+      if (tousCoches) tr.classList.add("ligne-validee"); // ligne verte dans toutes les vues
+
       let cells = "";
 
-      if (estPalettes) {
-        // Case "client" (cochée auto quand tous les produits sont cochés)
-        const prodsRemplis = CATEGORIES.filter(cat => c[cat] && String(c[cat]).trim().length > 0);
-        const tousCoches = prodsRemplis.length > 0 && prodsRemplis.every(cat => checks[cat]);
-        if (tousCoches) tr.classList.add("ligne-validee");
+      if (avecCaseClient) {
+        // Case "client" : cliquable dans Palettes et dans la vue principale Commandes
         cells += `<td class="cell-check"><input type="checkbox" class="chk" ${tousCoches ? "checked" : ""}
                     onclick="cocherClient('${c.id}', this.checked)"></td>`;
       }
@@ -1519,10 +1526,13 @@
       cells += `<td class="camion" contenteditable data-id="${c.id}" data-champ="camion">${esc(c.camion)}</td>`;
       cells += `<td class="client" contenteditable data-id="${c.id}" data-champ="client">${esc(c.client)}${tagSource(c.source)}${tagRajout}${tagBelle}</td>`;
 
+      const checksAtelier = c.checksAtelier || {};
       for (const cat of vue.cols) {
         const valeur = c[cat] || "";
-        if (estPalettes && String(valeur).trim().length > 0) {
-          // Cellule avec case à cocher par produit
+        const aValeur = String(valeur).trim().length > 0;
+
+        if (estPalettes && aValeur) {
+          // Palettes : case de contrôle final (checks)
           const coche = !!checks[cat];
           cells += `<td class="cell-prod-check" data-id="${c.id}" data-champ="${cat}">
               <div class="prod-wrap">
@@ -1530,8 +1540,19 @@
                 <span class="${coche ? "chk-coche-texte" : ""}">${esc(valeur)}</span>
               </div></td>`;
         } else if (estPalettes) {
-          cells += `<td></td>`; // vide, pas de case
+          cells += `<td></td>`;
+        } else if (estVueProduit && aValeur) {
+          // Vue produit : case d'atelier indépendante (checksAtelier)
+          const coche = !!checksAtelier[cat];
+          cells += `<td class="cell-prod-check" data-id="${c.id}" data-champ="${cat}">
+              <div class="prod-wrap">
+                <input type="checkbox" class="chk-prod chk-atelier" ${coche ? "checked" : ""} onclick="cocherAtelier('${c.id}', '${cat}', this.checked)">
+                <span class="${coche ? "chk-coche-texte" : ""}">${esc(valeur)}</span>
+              </div></td>`;
+        } else if (estVueProduit) {
+          cells += `<td></td>`;
         } else {
+          // Vue Commandes : éditable, pas de case
           cells += `<td contenteditable data-id="${c.id}" data-champ="${cat}">${esc(valeur)}</td>`;
         }
       }
@@ -1562,6 +1583,11 @@
     const maj = {};
     prodsRemplis.forEach(cat => { maj[cat] = etat ? true : null; });
     db.ref(`commandes/${id}/checks`).update(maj);
+  }
+  // Case d'atelier (sous-onglets produit) : indépendante de Palettes, mais partagée en temps réel
+  function cocherAtelier(id, cat, etat) {
+    if (!db) return;
+    db.ref(`commandes/${id}/checksAtelier/${cat}`).set(etat ? true : null);
   }
 
   function tagSource(src) {
