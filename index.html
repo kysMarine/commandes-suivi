@@ -1438,6 +1438,40 @@
     palettes: { cols: CATEGORIES, filtreCats: null }
   };
   const LIBELLES_CAT = { etoiles:"Étoiles", baby:"Baby", kys:"Kys", fines:"Fines", easy:"Easy", coffrets:"Coffrets", cadeaux:"Cadeaux" };
+
+  // Colonnes par référence pour les vues d'atelier.
+  // Chaque entrée : { code, source } — source = la catégorie d'où vient la valeur, code = le code à chercher
+  const COLONNES_REF = {
+    etoiles: [
+      { code: "En1", source: "etoiles" }, { code: "En2", source: "etoiles" },
+      { code: "En3", source: "etoiles" }, { code: "En4", source: "etoiles" }
+    ],
+    baby: [
+      { code: "bbk", source: "baby", libelle: "Baby" }
+    ],
+    kys: [
+      { code: "K1", source: "kys" }, { code: "K2", source: "kys" }, { code: "K3", source: "kys" }
+    ],
+    fec: [
+      { code: "F1", source: "fines" }, { code: "F2", source: "fines" }, { code: "F3", source: "fines" },
+      { code: "Easy2", source: "easy" }, { code: "Easy3", source: "easy" },
+      { code: "Coffrets", source: "coffrets", libelle: "Coffrets" }
+    ]
+  };
+
+  // Extrait, d'une cellule, les morceaux dont le code correspond à `code` (ex. "4x48 En3")
+  function morceauxParCode(cellule, code) {
+    if (!cellule) return [];
+    const out = [];
+    const motifs = String(cellule).matchAll(/(\d+\s*x\s*\d+\s*(?:kg)?)\s*([A-Za-zÉé]+\d*)/g);
+    for (const m of motifs) {
+      if (m[2].toLowerCase() === code.toLowerCase()) {
+        out.push(m[1].replace(/\s+/g, "") + " " + code);
+      }
+    }
+    return out;
+  }
+
   let vueCommandes = "toutes";
 
   function changerVue(vue) {
@@ -1461,12 +1495,21 @@
     // Vue produit (sous-onglet de travail) : cases d'atelier indépendantes
     const estVueProduit = ["etoiles","baby","kys","fec"].includes(vueCommandes);
 
+    // Colonnes de référence pour la vue produit courante
+    const colsRef = estVueProduit ? (COLONNES_REF[vueCommandes] || []) : null;
+
     // --- En-tête dynamique selon la vue ---
     let theadHtml = "<tr>";
     if (avecCaseClient) theadHtml += "<th></th>"; // colonne case client
     theadHtml += "<th>Camion</th><th>Client</th>";
-    for (const cat of vue.cols) {
-      theadHtml += `<th data-cat="${cat}">${LIBELLES_CAT[cat]}</th>`;
+    if (estVueProduit) {
+      for (const rc of colsRef) {
+        theadHtml += `<th>${rc.libelle || rc.code}</th>`;
+      }
+    } else {
+      for (const cat of vue.cols) {
+        theadHtml += `<th data-cat="${cat}">${LIBELLES_CAT[cat]}</th>`;
+      }
     }
     theadHtml += "<th></th></tr>";
     thead.innerHTML = theadHtml;
@@ -1527,33 +1570,38 @@
       cells += `<td class="client" contenteditable data-id="${c.id}" data-champ="client">${esc(c.client)}${tagSource(c.source)}${tagRajout}${tagBelle}</td>`;
 
       const checksAtelier = c.checksAtelier || {};
-      for (const cat of vue.cols) {
-        const valeur = c[cat] || "";
-        const aValeur = String(valeur).trim().length > 0;
 
-        if (estPalettes && aValeur) {
-          // Palettes : case de contrôle final (checks)
-          const coche = !!checks[cat];
-          cells += `<td class="cell-prod-check" data-id="${c.id}" data-champ="${cat}">
+      if (estVueProduit) {
+        // Vue produit : une colonne par référence, répartition du contenu par code
+        for (const rc of colsRef) {
+          const morceaux = morceauxParCode(c[rc.source], rc.code);
+          if (morceaux.length === 0) { cells += `<td></td>`; continue; }
+          const texte = morceaux.join(" ");
+          const coche = !!checksAtelier[rc.code];
+          cells += `<td class="cell-prod-check">
               <div class="prod-wrap">
-                <input type="checkbox" class="chk-prod" ${coche ? "checked" : ""} onclick="cocherProduit('${c.id}', '${cat}', this.checked)">
-                <span class="${coche ? "chk-coche-texte" : ""}">${esc(valeur)}</span>
+                <input type="checkbox" class="chk-prod chk-atelier" ${coche ? "checked" : ""} onclick="cocherAtelier('${c.id}', '${rc.code}', this.checked)">
+                <span class="${coche ? "chk-coche-texte" : ""}">${esc(texte)}</span>
               </div></td>`;
-        } else if (estPalettes) {
-          cells += `<td></td>`;
-        } else if (estVueProduit && aValeur) {
-          // Vue produit : case d'atelier indépendante (checksAtelier)
-          const coche = !!checksAtelier[cat];
-          cells += `<td class="cell-prod-check" data-id="${c.id}" data-champ="${cat}">
-              <div class="prod-wrap">
-                <input type="checkbox" class="chk-prod chk-atelier" ${coche ? "checked" : ""} onclick="cocherAtelier('${c.id}', '${cat}', this.checked)">
-                <span class="${coche ? "chk-coche-texte" : ""}">${esc(valeur)}</span>
-              </div></td>`;
-        } else if (estVueProduit) {
-          cells += `<td></td>`;
-        } else {
-          // Vue Commandes : éditable, pas de case
-          cells += `<td contenteditable data-id="${c.id}" data-champ="${cat}">${esc(valeur)}</td>`;
+        }
+      } else {
+        for (const cat of vue.cols) {
+          const valeur = c[cat] || "";
+          const aValeur = String(valeur).trim().length > 0;
+          if (estPalettes && aValeur) {
+            // Palettes : case de contrôle final (checks)
+            const coche = !!checks[cat];
+            cells += `<td class="cell-prod-check" data-id="${c.id}" data-champ="${cat}">
+                <div class="prod-wrap">
+                  <input type="checkbox" class="chk-prod" ${coche ? "checked" : ""} onclick="cocherProduit('${c.id}', '${cat}', this.checked)">
+                  <span class="${coche ? "chk-coche-texte" : ""}">${esc(valeur)}</span>
+                </div></td>`;
+          } else if (estPalettes) {
+            cells += `<td></td>`;
+          } else {
+            // Vue Commandes : éditable, pas de case
+            cells += `<td contenteditable data-id="${c.id}" data-champ="${cat}">${esc(valeur)}</td>`;
+          }
         }
       }
 
