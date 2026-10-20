@@ -163,14 +163,31 @@
   .sous-onglet:hover { background: var(--surface-2); color: var(--text); }
   .sous-onglet.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
-  /* ---- Cases à cocher (vue Palettes) ---- */
+  /* ---- Cases à cocher (rondes, zone cliquable large pour tablette) ---- */
   td.cell-check { width: 1%; white-space: nowrap; text-align: center; }
-  .chk {
-    width: 18px; height: 18px; cursor: pointer; accent-color: var(--ok); vertical-align: middle;
+  /* Case ronde personnalisée */
+  .chk, .chk-prod {
+    -webkit-appearance: none; appearance: none; margin: 0;
+    width: 20px; height: 20px; min-width: 20px; border-radius: 50%;
+    border: 2px solid var(--border); background: var(--bg);
+    cursor: pointer; position: relative; flex-shrink: 0; transition: all 0.15s;
   }
-  td.cell-prod-check { position: relative; }
-  .prod-wrap { display: flex; align-items: center; gap: 8px; }
-  .prod-wrap .chk-prod { flex-shrink: 0; width: 16px; height: 16px; cursor: pointer; accent-color: var(--ok); }
+  .chk:hover, .chk-prod:hover { border-color: var(--ok); }
+  .chk:checked, .chk-prod:checked { background: var(--ok); border-color: var(--ok); }
+  .chk:checked::after, .chk-prod:checked::after {
+    content: ''; position: absolute; left: 6px; top: 2px;
+    width: 5px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+  td.cell-check { text-align: center; }
+  td.cell-check .chk { display: inline-block; vertical-align: middle; }
+  td.cell-prod-check { position: relative; padding: 0; }
+  /* .prod-wrap est un <label> : toute la cellule (case + texte) est cliquable */
+  .prod-wrap {
+    display: flex; align-items: center; gap: 10px; cursor: pointer;
+    padding: 12px; margin: -1px; user-select: none; -webkit-tap-highlight-color: transparent;
+  }
+  .prod-wrap:hover { background: var(--surface); }
   tr.ligne-validee { background: rgba(90,157,107,0.10); }
   tr.ligne-validee td.client { color: var(--ok); }
   .chk-coche-texte { text-decoration: line-through; opacity: 0.55; }
@@ -1579,10 +1596,10 @@
           const texte = morceaux.join(" ");
           const coche = !!checksAtelier[rc.code];
           cells += `<td class="cell-prod-check">
-              <div class="prod-wrap">
+              <label class="prod-wrap">
                 <input type="checkbox" class="chk-prod chk-atelier" ${coche ? "checked" : ""} onclick="cocherAtelier('${c.id}', '${rc.code}', this.checked)">
                 <span class="${coche ? "chk-coche-texte" : ""}">${esc(texte)}</span>
-              </div></td>`;
+              </label></td>`;
         }
       } else {
         for (const cat of vue.cols) {
@@ -1592,10 +1609,10 @@
             // Palettes : case de contrôle final (checks)
             const coche = !!checks[cat];
             cells += `<td class="cell-prod-check" data-id="${c.id}" data-champ="${cat}">
-                <div class="prod-wrap">
+                <label class="prod-wrap">
                   <input type="checkbox" class="chk-prod" ${coche ? "checked" : ""} onclick="cocherProduit('${c.id}', '${cat}', this.checked)">
                   <span class="${coche ? "chk-coche-texte" : ""}">${esc(valeur)}</span>
-                </div></td>`;
+                </label></td>`;
           } else if (estPalettes) {
             cells += `<td></td>`;
           } else {
