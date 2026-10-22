@@ -1018,23 +1018,47 @@
     }
   });
 
-  function ecouter() {
-    db.ref("commandes").on("value", (snap) => {
-      commandes = snap.val() || {};
-      setStatus(true, "En direct");
-      // À la première réception, choisir la journée à afficher (celle du jour si elle existe)
+  // Rafraîchissement groupé (debounce) : évite de re-render à chaque petit changement
+  let rafraichirTimer = null;
+  function planifierRafraichir() {
+    clearTimeout(rafraichirTimer);
+    rafraichirTimer = setTimeout(() => {
       if (journeeAffichee === null) choisirJourneeInitiale();
-      // Si la journée affichée n'existe plus (ex. toutes supprimées), en rechoisir une
       else if (!listeJournees().some(j => j.libelle === journeeAffichee)) choisirJourneeInitiale();
       majLabelJournee();
       rendreCommandes();
       rendreStock();
       rendreTotaux();
-    }, (err) => { setStatus(false, "Déconnecté"); console.error(err); });
+    }, 60);
+  }
 
+  function ecouter() {
+    // --- Écoute DELTA des commandes : seule la commande modifiée est transmise ---
+    // (au lieu de retélécharger tout le nœud à chaque changement -> économise la bande passante)
+    const refCmd = db.ref("commandes");
+    refCmd.on("child_added", (snap) => {
+      commandes[snap.key] = snap.val();
+      planifierRafraichir();
+    }, (err) => { setStatus(false, "Déconnecté"); console.error(err); });
+    refCmd.on("child_changed", (snap) => {
+      commandes[snap.key] = snap.val();
+      planifierRafraichir();
+    });
+    refCmd.on("child_removed", (snap) => {
+      delete commandes[snap.key];
+      planifierRafraichir();
+    });
+
+    // --- Stock : petit nœud, écoute globale sans souci de volume ---
     db.ref("stock").on("value", (snap) => {
       stock = snap.val() || {};
       rendreStock();
+    });
+
+    // --- Statut de connexion réel (fiable avec le wifi des tablettes) ---
+    db.ref(".info/connected").on("value", (snap) => {
+      if (snap.val() === true) setStatus(true, "En direct");
+      else setStatus(false, "Reconnexion…");
     });
   }
 
